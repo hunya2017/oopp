@@ -319,14 +319,21 @@ jobs:
       run: |
         git config --global user.name "GitHub Actions"
         git config --global user.email "actions@github.com"
+
+        # 检查文件是否有更改
         if ! git diff --quiet -- config/immortalwrt.info; then
+          # 先获取最新的远程状态
+          git fetch origin ${{ github.ref_name }}
+          git checkout ${{ github.ref_name }}
+          git pull origin ${{ github.ref_name }} || git reset --hard origin/${{ github.ref_name }}
+          
+          # 重新复制更新的配置文件
+          cp openwrt/.config config/immortalwrt.info
+          
+          # 提交更改
           git add config/immortalwrt.info
-          git commit -m "更新.config文件"
-          git pull origin ${{ github.ref }}
-          for i in {1..3}; do
-            git push origin ${{ github.ref }} && break || echo "重试推送更改 ($i/3)..."
-            sleep 5
-          done
+          git commit -m "自动更新编译配置 [$(date '+%Y-%m-%d %H:%M:%S')]" || echo "无需提交"
+          git push origin ${{ github.ref_name }} || echo "推送失败，跳过"
         else
           echo ".config文件没有更改，无需提交。"
         fi
@@ -344,19 +351,130 @@ jobs:
       if: steps.compile.outputs.status == 'success' && !cancelled()
       run: |
         cd openwrt
+
+        echo "=== 调试：检查编译输出结构 ==="
+        echo "当前目录内容："
+        ls -la
+
+        echo "bin目录结构："
+        if [ -d "bin" ]; then
+          find bin/ -type f | head -20
+          echo "bin目录文件总数：$(find bin/ -type f | wc -l)"
+        else
+          echo "bin目录不存在"
+        fi
+
+        # 创建目标目录
         mkdir -p ./artifact/firmware ./artifact/package ./artifact/buildinfo
 
-        find ./bin/targets/ -type d -name "packages" -exec rm -rf {} +
-        find ./bin/targets/ -type f -exec cp -t ./artifact/firmware/ {} +
-        find ./bin/packages/ -type f -name "*.ipk" -exec cp -t ./artifact/package/ {} +
-        find ./bin/targets/ -type f \( -name "*.buildinfo" -o -name "*.manifest" \) -exec cp -t ./artifact/buildinfo/ {} +
+        echo "=== 开始整理文件 ==="
 
-        cp -f ./.config ./artifact/buildinfo/${{ env.Firmware_Name }}.info
-        cp -f ./.config ./artifact/firmware/${{ env.Firmware_Name }}.info
-        cp -f ./feeds.conf.default ./artifact/buildinfo/
+        # 处理固件文件
+        if [ -d "bin/targets" ]; then
+          echo "处理固件文件..."
+          find bin/targets/ -type f | while read -r file; do
+            echo "复制固件文件: $file"
+            cp "$file" ./artifact/firmware/ 2>/dev/null || echo "失败: $file"
+          done
+          echo "固件文件复制完成，共 $(ls artifact/firmware/ | wc -l) 个文件"
+        else
+          echo "警告: bin/targets 目录不存在"
+        fi
 
-        cd artifact/firmware/
-        rename "s/openwrt/${{ env.Firmware_Name }}/" * || true
+        # 处理IPK包
+        if [ -d "bin/packages" ]; then
+          echo "处理IPK包..."
+          find bin/packages/ -name "*.ipk" | while read -r file; do
+            echo "复制IPK包: $file"
+            cp "$file" ./artifact/package/ 2>/dev/null || echo "失败: $file"
+          done
+          echo "IPK包复制完成，共 $(ls artifact/package/ | wc -l) 个文件"
+        else
+          echo "提示: bin/packages 目录不存在，跳过IPK包处理"
+        fi
+
+        # 处理构建信息文件
+        echo "处理构建信息文件..."
+        buildinfo_count=0
+
+        # 查找并复制 .buildinfo 文件
+        if find bin/targets/ -name "*.buildinfo" 2>/dev/null | grep -q .; then
+          find bin/targets/ -name "*.buildinfo" | while read -r file; do
+            echo "复制buildinfo: $file"
+            cp "$file" ./artifact/buildinfo/
+            buildinfo_count=$((buildinfo_count + 1))
+          done
+        else
+          echo "未找到 .buildinfo 文件"
+        fi
+
+        # 查找并复制 .manifest 文件
+        if find bin/targets/ -name "*.manifest" 2>/dev/null | grep -q .; then
+          find bin/targets/ -name "*.manifest" | while read -r file; do
+            echo "复制manifest: $file"
+            cp "$file" ./artifact/buildinfo/
+            buildinfo_count=$((buildinfo_count + 1))
+          done
+        else
+          echo "未找到 .manifest 文件"
+        fi
+
+        # 复制配置文件
+        echo "复制配置文件..."
+        if [ -f ".config" ]; then
+          cp .config ./artifact/buildinfo/${{ env.Firmware_Name }}.info
+          cp .config ./artifact/firmware/${{ env.Firmware_Name }}.info
+          echo "已复制 .config 文件"
+        else
+          echo "警告: .config 文件不存在"
+        fi
+
+        if [ -f "feeds.conf.default" ]; then
+          cp feeds.conf.default ./artifact/buildinfo/
+          echo "已复制 feeds.conf.default"
+        else
+          echo "警告: feeds.conf.default 不存在"
+        fi
+          
+          # 创建编译信息文件（确保buildinfo目录不为空）
+          cat > ./artifact/buildinfo/build-summary.txt << EOF
+        编译摘要
+        ========
+        编译时间: $(date)
+        目标设备: ${{ env.DEVICE_NAME }}
+        固件名称: ${{ env.Firmware_Name }}
+        源码分支: ${{ env.REPO_BRANCH }}
+        编译主机: $(hostname)
+
+        文件统计:
+        固件文件: $(ls artifact/firmware/ | wc -l) 个
+        IPK包文件: $(ls artifact/package/ | wc -l) 个
+        构建信息: $(ls artifact/buildinfo/ | wc -l) 个
+
+        编译完成状态: 成功
+        EOF
+          
+          # 重命名固件文件
+          cd artifact/firmware/
+          for file in *openwrt*; do
+            if [ -f "$file" ]; then
+              new_name=$(echo "$file" | sed "s/openwrt/${{ env.Firmware_Name }}/")
+              mv "$file" "$new_name" 2>/dev/null || echo "重命名失败: $file"
+            fi
+          done
+          
+          cd ../..
+          
+          echo "=== 最终文件统计 ==="
+          echo "固件目录文件数: $(ls artifact/firmware/ | wc -l)"
+          echo "包目录文件数: $(ls artifact/package/ | wc -l)"
+          echo "构建信息目录文件数: $(ls artifact/buildinfo/ | wc -l)"
+          
+          echo "构建信息目录内容:"
+          ls -la artifact/buildinfo/
+          
+          echo "固件目录内容:"
+          ls -la artifact/firmware/
 
     - name: 上传固件
       if: steps.compile.outputs.status == 'success' && github.event.inputs.UPLOAD_FIRMWARE == 'true' && !cancelled()
