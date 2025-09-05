@@ -1,4 +1,4 @@
-name: immortalwrt-r3s
+name: immortalwrt-all
 
 on:
   watch:
@@ -135,7 +135,6 @@ jobs:
       run: |
         cd openwrt
         ./scripts/feeds install -a
-
         echo "=== 开始修改默认设置文件 ==="
 
         # 查找default-settings目录
@@ -156,13 +155,11 @@ jobs:
         fi
 
         echo "使用目录: $DEFAULT_SETTINGS_PATH"
-        cd $DEFAULT_SETTINGS_PATH
+        cd "$DEFAULT_SETTINGS_PATH"
 
         # 检查是否存在99-default-settings文件
         if [ -f "files/99-default-settings" ]; then
           echo "✓ 找到99-default-settings文件"
-          
-          # 备份原文件
           cp files/99-default-settings files/99-default-settings.bak
           echo "✓ 已备份原文件"
           
@@ -170,13 +167,11 @@ jobs:
           if [ -e "$GITHUB_WORKSPACE/$SETTINGS_PATCH" ]; then
             echo "尝试使用patch方式修改..."
             cp "$GITHUB_WORKSPACE/$SETTINGS_PATCH" ./settings.patch
-            
             if patch --dry-run -p1 < settings.patch >/dev/null 2>&1; then
               patch -p1 < settings.patch
               echo "✓ patch方式修改成功"
             else
               echo "⚠ patch方式失败，使用sed方式修改"
-              # 恢复备份文件
               cp files/99-default-settings.bak files/99-default-settings
             fi
           fi
@@ -185,44 +180,74 @@ jobs:
           if ! grep -q "ImmortalWrt-Custom" files/99-default-settings; then
             echo "使用sed方式添加自定义设置..."
             
-            # 创建临时的自定义设置内容
-            if [ -f "$GITHUB_WORKSPACE/$SETTINGS_PATCH" ]; then
-              echo "使用 $SETTINGS_PATCH 文件进行修改"
-              cat "$GITHUB_WORKSPACE/$SETTINGS_PATCH" > /tmp/custom_settings
-            else
-              echo "$SETTINGS_PATCH 不存在，配置失败"
-              exit 1
-            fi
-            
-            # 在exit 0之前插入自定义内容
+            # 写入自定义设置到临时文件
+            echo '# === 自定义设置开始 ===' > /tmp/custom_settings
+            echo 'echo "应用自定义默认设置..."' >> /tmp/custom_settings
+            echo '' >> /tmp/custom_settings
+            echo '# 系统设置' >> /tmp/custom_settings
+            echo "uci set system.@system[0].hostname='ImmortalWrt-Custom'" >> /tmp/custom_settings
+            echo "uci set system.@system[0].timezone='CST-8'" >> /tmp/custom_settings
+            echo "uci set system.@system[0].zonename='Asia/Shanghai'" >> /tmp/custom_settings
+            echo '' >> /tmp/custom_settings
+            echo '# 网络设置' >> /tmp/custom_settings
+            echo "uci set network.lan.ipaddr='192.168.10.1'" >> /tmp/custom_settings
+            echo "uci set network.lan.netmask='255.255.255.0'" >> /tmp/custom_settings
+            echo '' >> /tmp/custom_settings
+            echo '# DHCP设置' >> /tmp/custom_settings
+            echo "uci set dhcp.lan.start='100'" >> /tmp/custom_settings
+            echo "uci set dhcp.lan.limit='150'" >> /tmp/custom_settings
+            echo "uci set dhcp.lan.leasetime='12h'" >> /tmp/custom_settings
+            echo '' >> /tmp/custom_settings
+            echo '# 删除IPv6设置' >> /tmp/custom_settings
+            echo 'uci delete network.lan.ip6assign 2>/dev/null' >> /tmp/custom_settings
+            echo 'uci delete network.wan6 2>/dev/null' >> /tmp/custom_settings
+            echo 'uci delete dhcp.lan.dhcpv6 2>/dev/null' >> /tmp/custom_settings
+            echo 'uci delete dhcp.lan.ra 2>/dev/null' >> /tmp/custom_settings
+            echo '' >> /tmp/custom_settings
+            echo '# 设置默认密码' >> /tmp/custom_settings
+            echo "echo 'root:password' | chpasswd" >> /tmp/custom_settings
+            echo '' >> /tmp/custom_settings
+            echo '# NTP服务器设置' >> /tmp/custom_settings
+            echo 'uci delete system.ntp.server 2>/dev/null' >> /tmp/custom_settings
+            echo "uci add_list system.ntp.server='ntp.aliyun.com'" >> /tmp/custom_settings
+            echo "uci add_list system.ntp.server='time.pool.aliyun.com'" >> /tmp/custom_settings
+            echo "uci add_list system.ntp.server='cn.pool.ntp.org'" >> /tmp/custom_settings
+            echo '' >> /tmp/custom_settings
+            echo '# 无线设置（如果存在）' >> /tmp/custom_settings
+            {
+              echo 'wifi_device=$(uci show wireless 2>/dev/null | grep "wireless\.radio" | cut -d"." -f2 | cut -d"=" -f1 | head -1)'
+              echo 'if [ -n "$wifi_device" ]; then'
+              echo '    uci set wireless.$wifi_device.disabled="0"'
+              echo '    uci set wireless.$wifi_device.country="CN"'
+              echo '    uci set wireless.$wifi_device.channel="auto"'
+              echo '    wifi_iface=$(uci show wireless 2>/dev/null | grep "wireless\.default_" | cut -d"." -f2 | cut -d"=" -f1 | head -1)'
+              echo '    if [ -n "$wifi_iface" ]; then'
+              echo '        uci set wireless.$wifi_iface.ssid="ImmortalWrt-WiFi"'
+              echo '        uci set wireless.$wifi_iface.key="12345678"'
+              echo '        uci set wireless.$wifi_iface.encryption="psk2"'
+              echo '        uci set wireless.$wifi_iface.disabled="0"'
+              echo '    fi'
+              echo 'fi'
+            } >> /tmp/custom_settings
+            echo 'echo "自定义设置应用完成"' >> /tmp/custom_settings
+            echo '# === 自定义设置结束 ===' >> /tmp/custom_settings
+            echo "$CUSTOM_SETTINGS" > /tmp/custom_settings
+
             if grep -q "exit 0" files/99-default-settings; then
-              # 找到exit 0的行号，在其前面插入内容
-              sed -i '/exit 0/i\
-              # === 插入自定义设置 ===' files/99-default-settings
-              
-              # 在标记行后插入实际内容
+              sed -i '/exit 0/i\# === 插入自定义设置 ===' files/99-default-settings
               sed -i '/# === 插入自定义设置 ===/r /tmp/custom_settings' files/99-default-settings
-              
-              # 删除标记行
               sed -i '/# === 插入自定义设置 ===/d' files/99-default-settings
-              
               echo "✓ 使用sed方式修改成功"
             else
-              # 如果没有exit 0，直接在文件末尾添加
               cat /tmp/custom_settings >> files/99-default-settings
               echo "exit 0" >> files/99-default-settings
               echo "✓ 在文件末尾添加自定义设置"
             fi
-            
-            # 清理临时文件
             rm -f /tmp/custom_settings
           else
             echo "ℹ 文件已包含自定义设置，跳过修改"
           fi
-          
-          # 确保文件有执行权限
           chmod +x files/99-default-settings
-          
         else
           echo "⚠ 未找到99-default-settings文件，列出files目录内容:"
           ls -la files/ 2>/dev/null || echo "files目录不存在"
@@ -233,132 +258,3 @@ jobs:
           echo "文件内容:"
           cat files/99-default-settings
         fi
-
-    - name: 执行自定义脚本2
-      run: |
-        [ -e $CONFIG_FILE ] && cp $CONFIG_FILE openwrt/.config
-        chmod +x $DIY_P2_SH
-        cd openwrt
-        $GITHUB_WORKSPACE/$DIY_P2_SH
-
-    - name: SSH连接到Actions
-      if: (github.event.inputs.ssh == 'true' && github.event.inputs.ssh != 'false') || contains(github.event.action, 'ssh')
-      uses: P3TERX/ssh2actions@v1.0.0
-
-    - name: 输出编译信息
-      run: |
-        cd openwrt
-        echo " 系统空间      类型   总数  已用  可用 使用率"
-        df -hT $PWD
-        echo
-        echo "=========================================="
-
-        # 显示自定义设置文件状态
-        echo "检查自定义设置文件:"
-        DEFAULT_SETTINGS_PATH=$(find package/ -name "*default*" -type d | head -1)
-        if [ -n "$DEFAULT_SETTINGS_PATH" ] && [ -f "$DEFAULT_SETTINGS_PATH/files/99-default-settings" ]; then
-          echo "✓ 99-default-settings文件存在"
-          if grep -q "ImmortalWrt-Custom" "$DEFAULT_SETTINGS_PATH/files/99-default-settings"; then
-            echo "✓ 包含自定义设置"
-          else
-            echo "⚠ 未检测到自定义设置"
-          fi
-        fi
-
-        echo "=========================================="
-
-        # 显示已选插件列表
-        grep -i CONFIG_PACKAGE_luci-app .config | grep -v \# > Plug-in
-        grep -i CONFIG_PACKAGE_luci-theme .config | grep -v \# >> Plug-in
-        sed -i '/INCLUDE/d' Plug-in > /dev/null 2>&1
-        sed -i 's/CONFIG_PACKAGE_/、/g' Plug-in
-        sed -i 's/=y/\ /g' Plug-in
-        awk '$0=NR$0' Plug-in > Plug-2
-        awk '{print "	" $0}' Plug-2 > Plug-in
-
-        echo "已选插件列表"
-        cat Plug-in
-        rm -rf {Plug-in,Plug-2}
-
-    - name: 下载固件包
-      id: package
-      if: (!cancelled())
-      run: |
-        cd openwrt
-        make defconfig
-        make download -j$(($(nproc)+1))
-        find dl -size -1024c -exec ls -l {} \;
-        find dl -size -1024c -exec rm -f {} \;
-
-    - name: 编译固件
-      id: compile
-      run: |
-        cd openwrt
-        echo -e "$(nproc) thread compile"
-        make -j$(nproc) || make -j1 || make -j1 V=s
-        echo "======================="
-        echo "Space usage:"
-        echo "======================="
-        df -h
-        echo "status=success" >> $GITHUB_OUTPUT
-        grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
-        [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
-        echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
-
-    # 后续的上传和发布步骤保持不变...
-    - name: 整理固件文件
-      id: artifact
-      if: steps.compile.outputs.status == 'success' && !cancelled()
-      run: |
-        cd openwrt
-        mkdir -p ./artifact/firmware ./artifact/package ./artifact/buildinfo
-
-        find ./bin/targets/ -type d -name "packages" -exec rm -rf {} +
-        find ./bin/targets/ -type f -exec cp -t ./artifact/firmware/ {} +
-        find ./bin/packages/ -type f -name "*.ipk" -exec cp -t ./artifact/package/ {} +
-        find ./bin/targets/ -type f \( -name "*.buildinfo" -o -name "*.manifest" \) -exec cp -t ./artifact/buildinfo/ {} +
-
-        cp -f ./.config ./artifact/buildinfo/${{ env.Firmware_Name }}.info
-        cp -f ./.config ./artifact/firmware/${{ env.Firmware_Name }}.info
-        cp -f ./feeds.conf.default ./artifact/buildinfo/
-
-        cd artifact/firmware/
-        rename "s/openwrt/${{ env.Firmware_Name }}/" * || true
-
-    - name: 生成发布标签
-      id: tag
-      if: steps.compile.outputs.status == 'success' && github.event.inputs.UPLOAD_RELEASE == 'true' && !cancelled()
-      run: |
-        echo "release_tag=$(date +"%Y.%m.%d.%H.%M")-${{ env.Firmware_Name }}" >> $GITHUB_OUTPUT
-        echo "release_date=$(date +"%Y.%m.%d.%H.%M")" >> $GITHUB_OUTPUT
-        touch release.txt
-        echo "
-        ⏰ 编译时间：${{ env.FILE_TIME1 }}
-
-        🎈 固件版本：ImmortalWrt Custom Build
-
-        🖥 管理地址：192.168.10.1 
-
-        🌴 用户名：root
-
-        🛠 密码：password
-
-        📝 自定义功能：
-        - 中文界面
-        - 自定义IP地址(192.168.10.1)
-        - 优化时区设置
-        - 预设WiFi配置
-        - DHCP范围: 192.168.10.100-250
-        " >> release.txt
-        echo "status=success" >> $GITHUB_OUTPUT
-
-    - name: 自动发布固件到Releases
-      uses: softprops/action-gh-release@v2
-      if: steps.compile.outputs.status == 'success' && github.event.inputs.UPLOAD_RELEASE == 'true' && !cancelled()
-      env:
-        GITHUB_TOKEN: ${{ secrets.GIT_USER_TOKEN }}
-      with:
-        name: ${{ steps.tag.outputs.release_date }} ${{ env.Firmware_Name }}
-        tag_name: ${{ steps.tag.outputs.release_tag }}
-        body_path: release.txt
-        files: openwrt/artifact/firmware/*
