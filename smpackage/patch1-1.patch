@@ -1,0 +1,35 @@
+From e6749fec72cab509fd2c9c83a390b580191699c6 Mon Sep 17 00:00:00 2001
+From: hunya2017 <hunya2017@gmail.com>
+Date: Fri, 5 Sep 2025 19:03:20 +0800
+Subject: [PATCH] Add my-default-settings package with 99-my-default-settings
+
+---
+ package/emortal/default-settings/Makefile | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/package/emortal/default-settings/Makefile b/package/emortal/default-settings/Makefile
+index 65a6f52a06..11ad4c8840 100644
+--- a/package/emortal/default-settings/Makefile
++++ b/package/emortal/default-settings/Makefile
+@@ -41,3 +41,18 @@ endef
+ 
+ $(eval $(call BuildPackage,default-settings))
+ $(eval $(call BuildPackage,default-settings-chn))
++
++define Package/my-default-settings
++  $(Package/default-settings)
++  TITLE+= (My Custom Default Settings)
++  DEPENDS:=+default-settings
++  PKGARCH:=all
++endef
++
++define Package/my-default-settings/install
++	$(INSTALL_DIR) $(1)/etc/uci-defaults
++	$(INSTALL_BIN) ./files/99-my-default-settings $(1)/etc/uci-defaults/
++endef
++
++$(eval $(call BuildPackage,my-default-settings))
++
+-- 
+2.49.0.windows.1
+

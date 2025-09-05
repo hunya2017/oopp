@@ -1,35 +1,23 @@
-From e6749fec72cab509fd2c9c83a390b580191699c6 Mon Sep 17 00:00:00 2001
+From f71c9d83cab6f615e4ae071aa35121df3d63d34b Mon Sep 17 00:00:00 2001
 From: hunya2017 <hunya2017@gmail.com>
-Date: Fri, 5 Sep 2025 19:03:20 +0800
-Subject: [PATCH] Add my-default-settings package with 99-my-default-settings
+Date: Fri, 5 Sep 2025 21:21:38 +0800
+Subject: [PATCH] Add my custom default network settings
 
 ---
- package/emortal/default-settings/Makefile | 15 +++++++++++++++
- 1 file changed, 15 insertions(+)
+ package/emortal/default-settings/files/99-default-settings | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/package/emortal/default-settings/Makefile b/package/emortal/default-settings/Makefile
-index 65a6f52a06..11ad4c8840 100644
---- a/package/emortal/default-settings/Makefile
-+++ b/package/emortal/default-settings/Makefile
-@@ -41,3 +41,18 @@ endef
+diff --git a/package/emortal/default-settings/files/99-default-settings b/package/emortal/default-settings/files/99-default-settings
+index 1eb28b46a3..1925524659 100755
+--- a/package/emortal/default-settings/files/99-default-settings
++++ b/package/emortal/default-settings/files/99-default-settings
+@@ -1,5 +1,6 @@
+ #!/bin/sh
  
- $(eval $(call BuildPackage,default-settings))
- $(eval $(call BuildPackage,default-settings-chn))
-+
-+define Package/my-default-settings
-+  $(Package/default-settings)
-+  TITLE+= (My Custom Default Settings)
-+  DEPENDS:=+default-settings
-+  PKGARCH:=all
-+endef
-+
-+define Package/my-default-settings/install
-+	$(INSTALL_DIR) $(1)/etc/uci-defaults
-+	$(INSTALL_BIN) ./files/99-my-default-settings $(1)/etc/uci-defaults/
-+endef
-+
-+$(eval $(call BuildPackage,my-default-settings))
-+
++uci set network.lan.ipaddr='192.168.10.1'
+ . /etc/openwrt_release
+ 
+ uci -q get system.@imm_init[0] > "/dev/null" || uci -q add system imm_init > "/dev/null"
 -- 
 2.49.0.windows.1
 
