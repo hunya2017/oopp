@@ -216,12 +216,12 @@ jobs:
           head -15 files/99-my-default-settings
           
           # 如果没有成功应用Makefile补丁，则直接替换默认设置文件
-          if [ -f "files/99-default-settings" ]; then
-            echo "备份并替换原始默认设置文件"
-            cp files/99-default-settings files/99-default-settings.bak
-            cp files/99-my-default-settings files/99-default-settings
-            echo "✓ 已替换原始默认设置文件"
-          fi
+          # if [ -f "files/99-default-settings" ]; then
+          #   echo "备份并替换原始默认设置文件"
+          #   cp files/99-default-settings files/99-default-settings.bak
+          #   cp files/99-my-default-settings files/99-default-settings
+          #   echo "✓ 已替换原始默认设置文件"
+          # fi
         else
           echo "ℹ 未找到自定义设置文件: $CUSTOM_SETTINGS"
         fi
