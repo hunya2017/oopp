@@ -1,0 +1,30 @@
+--- a/Makefile
++++ b/Makefile
+@@ -25,6 +25,15 @@ define Package/default-settings-chn
+ 	PKGARCH:=all
+ endef
+ 
++define Package/my-default-settings
++	$(call Package/default-settings/Default)
++	TITLE:=My Custom Default Settings for ImmortalWrt
++	DEPENDS:=+default-settings
++	VARIANT:=my
++	DEFAULT:=y
++	PKGARCH:=all
++endef
++
+ define Build/Compile
+ endef
+ 
+@@ -34,5 +43,10 @@ define Package/default-settings-chn/install
+ 	$(INSTALL_BIN) ./files/99-default-settings-chinese $(1)/etc/uci-defaults/
+ endef
+ 
++define Package/my-default-settings/install
++	$(INSTALL_DIR) $(1)/etc/uci-defaults
++	$(INSTALL_BIN) ./files/99-my-default-settings $(1)/etc/uci-defaults/
++endef
++
+ $(eval $(call BuildPackage,default-settings))
+ $(eval $(call BuildPackage,default-settings-chn))
++$(eval $(call BuildPackage,my-default-settings))

@@ -1,0 +1,154 @@
+#!/bin/sh
+
+# ImmortalWrt自定义默认设置脚本
+# 在系统首次启动时自动执行，完成后自动删除
+
+echo "开始应用ImmortalWrt自定义默认设置..."
+
+# ===== 系统基础设置 =====
+echo "配置系统基础设置..."
+
+# 设置主机名
+uci set system.@system[0].hostname='ImmortalWrt-Custom'
+
+# 设置时区为中国标准时间
+uci set system.@system[0].timezone='CST-8'
+uci set system.@system[0].zonename='Asia/Shanghai'
+
+# 设置系统描述
+uci set system.@system[0].description='ImmortalWrt Custom Build'
+
+# ===== Web界面设置 =====
+echo "配置Web界面..."
+
+# 设置默认语言为中文
+uci set luci.main.lang='zh_cn'
+
+# 设置默认主题（如果存在argon主题）
+uci set luci.main.mediaurlbase='/luci-static/argon' 2>/dev/null || {
+    # 如果argon主题不存在，尝试其他主题
+    uci set luci.main.mediaurlbase='/luci-static/bootstrap' 2>/dev/null
+}
+
+# ===== 网络设置 =====
+echo "配置网络设置..."
+
+# 设置LAN接口IP地址
+uci set network.lan.ipaddr='192.168.10.1'
+uci set network.lan.netmask='255.255.255.0'
+uci set network.lan.proto='static'
+
+# 配置DHCP服务
+uci set dhcp.lan.start='100'
+uci set dhcp.lan.limit='150'
+uci set dhcp.lan.leasetime='12h'
+
+# 删除IPv6相关配置（如果不需要IPv6）
+uci delete network.lan.ip6assign 2>/dev/null
+uci delete network.wan6 2>/dev/null
+uci delete dhcp.lan.dhcpv6 2>/dev/null
+uci delete dhcp.lan.ra 2>/dev/null
+
+# ===== 无线网络设置 =====
+echo "配置无线网络..."
+
+# 检查是否存在无线设备
+wifi_device=$(uci show wireless 2>/dev/null | grep "wireless\.radio" | cut -d'.' -f2 | cut -d'=' -f1 | head -1)
+if [ -n "$wifi_device" ]; then
+    echo "发现无线设备: $wifi_device"
+    
+    # 启用无线设备
+    uci set wireless.$wifi_device.disabled='0'
+    uci set wireless.$wifi_device.country='CN'
+    uci set wireless.$wifi_device.channel='auto'
+    
+    # 配置2.4G WiFi
+    wifi_iface=$(uci show wireless 2>/dev/null | grep "wireless\.default_" | cut -d'.' -f2 | cut -d'=' -f1 | head -1)
+    if [ -n "$wifi_iface" ]; then
+        uci set wireless.$wifi_iface.ssid='ImmortalWrt-WiFi'
+        uci set wireless.$wifi_iface.key='12345678'
+        uci set wireless.$wifi_iface.encryption='psk2'
+        uci set wireless.$wifi_iface.disabled='0'
+        echo "已配置WiFi: ImmortalWrt-WiFi / 密码: 12345678"
+    fi
+    
+    # 如果存在5G频段，也进行配置
+    wifi_device_5g=$(uci show wireless 2>/dev/null | grep "wireless\.radio1" | cut -d'.' -f2 | cut -d'=' -f1)
+    if [ -n "$wifi_device_5g" ]; then
+        uci set wireless.$wifi_device_5g.disabled='0'
+        uci set wireless.$wifi_device_5g.country='CN'
+        uci set wireless.$wifi_device_5g.channel='auto'
+        
+        wifi_iface_5g=$(uci show wireless 2>/dev/null | grep "wireless\.default_radio1" | cut -d'.' -f2 | cut -d'=' -f1)
+        if [ -n "$wifi_iface_5g" ]; then
+            uci set wireless.$wifi_iface_5g.ssid='ImmortalWrt-WiFi-5G'
+            uci set wireless.$wifi_iface_5g.key='12345678'
+            uci set wireless.$wifi_iface_5g.encryption='psk2'
+            uci set wireless.$wifi_iface_5g.disabled='0'
+            echo "已配置5G WiFi: ImmortalWrt-WiFi-5G / 密码: 12345678"
+        fi
+    fi
+else
+    echo "未检测到无线设备"
+fi
+
+# ===== 安全设置 =====
+echo "配置安全设置..."
+
+# 设置root密码
+echo 'root:password' | chpasswd
+echo "已设置root密码: password"
+
+# 禁用SSH密码登录（可选，增强安全性）
+# uci set dropbear.@dropbear[0].PasswordAuth='0'
+# uci set dropbear.@dropbear[0].RootPasswordAuth='0'
+
+# ===== 时间同步设置 =====
+echo "配置时间同步..."
+
+# 删除默认NTP服务器
+uci delete system.ntp.server 2>/dev/null
+
+# 添加中国NTP服务器
+uci add_list system.ntp.server='ntp.aliyun.com'
+uci add_list system.ntp.server='time.pool.aliyun.com'
+uci add_list system.ntp.server='cn.pool.ntp.org'
+uci add_list system.ntp.server='pool.ntp.org'
+
+# 启用NTP客户端
+uci set system.ntp.enabled='1'
+
+# ===== 防火墙设置 =====
+echo "配置防火墙..."
+
+# 设置防火墙默认策略（可根据需要调整）
+uci set firewall.@defaults[0].input='ACCEPT'
+uci set firewall.@defaults[0].output='ACCEPT'
+uci set firewall.@defaults[0].forward='REJECT'
+
+# ===== 服务管理 =====
+echo "配置系统服务..."
+
+# 确保基本服务启用
+/etc/init.d/uhttpd enable 2>/dev/null
+/etc/init.d/dnsmasq enable 2>/dev/null
+/etc/init.d/firewall enable 2>/dev/null
+/etc/init.d/network enable 2>/dev/null
+
+# 禁用不必要的服务（可根据需要调整）
+# /etc/init.d/telnet disable 2>/dev/null
+
+# ===== 软件源设置 =====
+echo "配置软件源..."
+
+# 备份原始软件源配置
+[ -f /etc/opkg/distfeeds.conf ] && cp /etc/opkg/distfeeds.conf /etc/opkg/distfeeds.conf.bak
+
+# 可以在这里添加自定义软件源
+# echo "src/gz custom_packages http://your-package-server.com/packages" >> /etc/opkg/customfeeds.conf
+
+# ===== 应用所有配置 =====
+echo "应用所有配置更改..."
+uci commit
+
+# ===== 重启相关服务
