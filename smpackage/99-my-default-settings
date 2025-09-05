@@ -9,20 +9,20 @@ echo "开始应用ImmortalWrt自定义默认设置..."
 echo "配置系统基础设置..."
 
 # 设置主机名
-uci set system.@system[0].hostname='ImmortalWrt-Custom'
+# uci set system.@system[0].hostname='ImmortalWrt-Custom'
 
 # 设置时区为中国标准时间
-uci set system.@system[0].timezone='CST-8'
-uci set system.@system[0].zonename='Asia/Shanghai'
+# uci set system.@system[0].timezone='CST-8'
+# uci set system.@system[0].zonename='Asia/Shanghai'
 
 # 设置系统描述
-uci set system.@system[0].description='ImmortalWrt Custom Build'
+# uci set system.@system[0].description='ImmortalWrt Custom Build'
 
 # ===== Web界面设置 =====
 echo "配置Web界面..."
 
 # 设置默认语言为中文
-uci set luci.main.lang='zh_cn'
+# uci set luci.main.lang='zh_cn'
 
 # 设置默认主题（如果存在argon主题）
 uci set luci.main.mediaurlbase='/luci-static/argon' 2>/dev/null || {
@@ -44,10 +44,10 @@ uci set dhcp.lan.limit='150'
 uci set dhcp.lan.leasetime='2m'
 
 # 删除IPv6相关配置（如果不需要IPv6）
-uci delete network.lan.ip6assign 2>/dev/null
-uci delete network.wan6 2>/dev/null
-uci delete dhcp.lan.dhcpv6 2>/dev/null
-uci delete dhcp.lan.ra 2>/dev/null
+# uci delete network.lan.ip6assign 2>/dev/null
+# uci delete network.wan6 2>/dev/null
+# uci delete dhcp.lan.dhcpv6 2>/dev/null
+# uci delete dhcp.lan.ra 2>/dev/null
 
 # ===== 无线网络设置 =====
 echo "配置无线网络..."
@@ -107,33 +107,33 @@ echo "已设置root密码: password"
 echo "配置时间同步..."
 
 # 删除默认NTP服务器
-uci delete system.ntp.server 2>/dev/null
+# uci delete system.ntp.server 2>/dev/null
 
 # 添加中国NTP服务器
-uci add_list system.ntp.server='ntp.aliyun.com'
-uci add_list system.ntp.server='time.pool.aliyun.com'
-uci add_list system.ntp.server='cn.pool.ntp.org'
-uci add_list system.ntp.server='pool.ntp.org'
+# uci add_list system.ntp.server='ntp.aliyun.com'
+# uci add_list system.ntp.server='time.pool.aliyun.com'
+# uci add_list system.ntp.server='cn.pool.ntp.org'
+# uci add_list system.ntp.server='pool.ntp.org'
 
 # 启用NTP客户端
-uci set system.ntp.enabled='1'
+# uci set system.ntp.enabled='1'
 
 # ===== 防火墙设置 =====
 echo "配置防火墙..."
 
 # 设置防火墙默认策略（可根据需要调整）
-uci set firewall.@defaults[0].input='ACCEPT'
-uci set firewall.@defaults[0].output='ACCEPT'
-uci set firewall.@defaults[0].forward='REJECT'
+# uci set firewall.@defaults[0].input='ACCEPT'
+# uci set firewall.@defaults[0].output='ACCEPT'
+# uci set firewall.@defaults[0].forward='REJECT'
 
 # ===== 服务管理 =====
 echo "配置系统服务..."
 
 # 确保基本服务启用
-/etc/init.d/uhttpd enable 2>/dev/null
-/etc/init.d/dnsmasq enable 2>/dev/null
-/etc/init.d/firewall enable 2>/dev/null
-/etc/init.d/network enable 2>/dev/null
+# /etc/init.d/uhttpd enable 2>/dev/null
+# /etc/init.d/dnsmasq enable 2>/dev/null
+# /etc/init.d/firewall enable 2>/dev/null
+# /etc/init.d/network enable 2>/dev/null
 
 # 禁用不必要的服务（可根据需要调整）
 # /etc/init.d/telnet disable 2>/dev/null
