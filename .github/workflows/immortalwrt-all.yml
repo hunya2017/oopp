@@ -433,7 +433,7 @@ jobs:
       continue-on-error: true
       if: steps.compile.outputs.status == 'success' && github.event.inputs.UPLOAD_RELEASE == 'true' && !cancelled()
       with:
-        keep_latest: 20
+        keep_latest: 60
         delete_tags: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

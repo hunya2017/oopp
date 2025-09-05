@@ -56,6 +56,17 @@ echo "检查是否需要添加自定义软件包..."
 # 示例: 克隆额外的软件包
 # git clone https://github.com/kenzok8/openwrt-packages.git package/custom-packages
 # git clone https://github.com/xiaorouji/openwrt-passwall.git package/passwall
+# 添加 iStore
+git clone https://github.com/linkease/istore package/istore
+
+# 添加 nikki
+git clone https://github.com/nikkinikki-org/OpenWrt-nikki.git package/OpenWrt-nikki
+
+# 添加 momo
+git clone https://github.com/nikkinikki-org/OpenWrt-momo.git package/OpenWrt-momo
+
+# 添加 AdGuardHome 插件
+git clone https://github.com/rufengsuixing/luci-app-adguardhome package/luci-app-adguardhome
 
 # ===== 修改目标架构配置 =====
 echo "检查目标架构配置..."
