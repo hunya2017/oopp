@@ -2,9 +2,9 @@
 echo "应用自定义默认设置..."
 
 # 系统设置
-uci set system.@system[0].hostname='ImmortalWrt-Custom'
-uci set system.@system[0].timezone='CST-8'
-uci set system.@system[0].zonename='Asia/Shanghai'
+uci set system.@system[0].hostname='ImmortalWrt'
+# uci set system.@system[0].timezone='CST-8'
+# uci set system.@system[0].zonename='Asia/Shanghai'
 
 # 网络设置
 uci set network.lan.ipaddr='192.168.10.1'
@@ -13,38 +13,40 @@ uci set network.lan.netmask='255.255.255.0'
 # DHCP设置
 uci set dhcp.lan.start='100'
 uci set dhcp.lan.limit='150'
-uci set dhcp.lan.leasetime='12h'
+uci set dhcp.lan.leasetime='2m'
 
 # 删除IPv6设置
-uci delete network.lan.ip6assign 2>/dev/null
-uci delete network.wan6 2>/dev/null
-uci delete dhcp.lan.dhcpv6 2>/dev/null
-uci delete dhcp.lan.ra 2>/dev/null
+# uci delete network.lan.ip6assign 2>/dev/null
+# uci delete network.wan6 2>/dev/null
+# uci delete dhcp.lan.dhcpv6 2>/dev/null
+# uci delete dhcp.lan.ra 2>/dev/null
 
 # 设置默认密码
 echo 'root:password' | chpasswd
 
 # NTP服务器设置
-uci delete system.ntp.server 2>/dev/null
-uci add_list system.ntp.server='ntp.aliyun.com'
-uci add_list system.ntp.server='time.pool.aliyun.com'
-uci add_list system.ntp.server='cn.pool.ntp.org'
+# uci delete system.ntp.server 2>/dev/null
+# uci add_list system.ntp.server='ntp.aliyun.com'
+# uci add_list system.ntp.server='time.pool.aliyun.com'
+# uci add_list system.ntp.server='cn.pool.ntp.org'
 
 # 无线设置（如果存在）
-wifi_device=$(uci show wireless 2>/dev/null | grep "wireless\.radio" | cut -d'.' -f2 | cut -d'=' -f1 | head -1)
-if [ -n "$wifi_device" ]; then
-    uci set wireless.$wifi_device.disabled='0'
-    uci set wireless.$wifi_device.country='CN'
-    uci set wireless.$wifi_device.channel='auto'
+# wifi_device=$(uci show wireless 2>/dev/null | grep "wireless\.radio" | cut -d'.' -f2 | cut -d'=' -f1 | head -1)
+# if [ -n "$wifi_device" ]; then
+#     uci set wireless.$wifi_device.disabled='0'
+#     uci set wireless.$wifi_device.country='CN'
+#     uci set wireless.$wifi_device.channel='auto'
     
-    wifi_iface=$(uci show wireless 2>/dev/null | grep "wireless\.default_" | cut -d'.' -f2 | cut -d'=' -f1 | head -1)
-    if [ -n "$wifi_iface" ]; then
-        uci set wireless.$wifi_iface.ssid='ImmortalWrt-WiFi'
-        uci set wireless.$wifi_iface.key='12345678'
-        uci set wireless.$wifi_iface.encryption='psk2'
-        uci set wireless.$wifi_iface.disabled='0'
-    fi
-fi
+#     wifi_iface=$(uci show wireless 2>/dev/null | grep "wireless\.default_" | cut -d'.' -f2 | cut -d'=' -f1 | head -1)
+#     if [ -n "$wifi_iface" ]; then
+#         uci set wireless.$wifi_iface.ssid='ImmortalWrt-WiFi'
+#         uci set wireless.$wifi_iface.key='12345678'
+#         uci set wireless.$wifi_iface.encryption='psk2'
+#         uci set wireless.$wifi_iface.disabled='0'
+#     fi
+# fi
+# 提交更改
+uci commit
 
 echo "自定义设置应用完成"
 # === 自定义设置结束 ===
