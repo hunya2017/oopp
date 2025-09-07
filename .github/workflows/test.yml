@@ -508,7 +508,7 @@ jobs:
         echo "IPK打包完成"
 
     - name: 上传固件到Actions空间
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: steps.compile.outputs.status == 'success' && !cancelled()
       with:
         name: ${{ env.Firmware_Name }}-${{ env.FILE_DATE }}
@@ -516,14 +516,16 @@ jobs:
           openwrt/artifact/firmware/*
           openwrt/artifact/buildinfo/*
         retention-days: 90
+        compression-level: 9
 
     - name: 上传IPK包到Actions空间
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: steps.compile.outputs.status == 'success' && !cancelled()
       with:
         name: ${{ env.Firmware_Name }}-packages-${{ env.FILE_DATE }}
         path: openwrt/artifact/ipk_packages.tar.gz
         retention-days: 90
+        compression-level: 9
 
     - name: 自动发布到Releases
       uses: softprops/action-gh-release@v2
