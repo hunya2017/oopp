@@ -79,6 +79,10 @@ uci set vlmcsd.config.enabled='1'
 uci set vlmcsd.config.auto_activate='1'
 uci set vlmcsd.config.internet_access='1'
 
+# /etc/config/momo
+uci set momo.proxy.proxy_tcp_dport='21 22 80 110 143 194 443 465 853 993 995 8080 8443'
+uci set momo.proxy.proxy_udp_dport='123 443 8443'
+uci set momo.cfg0493d7.dns='0'
 
 # 提交更改
 uci commit
