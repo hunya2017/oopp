@@ -374,17 +374,19 @@ jobs:
 
         echo "=== 开始整理固件文件 ==="
 
+        # 复制完成后再清理不需要的目录
+        if [ -d ./bin/targets ]; then
+          echo "清理 targets/packages 目录..."
+          find ./bin/targets/ -type d -name "packages" -exec rm -rf {} + || true
+        fi
+
         # 首先复制所有文件
         if [ -d ./bin/targets ]; then
           echo "复制固件文件..."
           find ./bin/targets/ -type f -exec cp -t ./artifact/firmware/ {} + || true
         fi
 
-        # 复制完成后再清理不需要的目录
-        if [ -d ./bin/targets ]; then
-          echo "清理 targets/packages 目录..."
-          find ./bin/targets/ -type d -name "packages" -exec rm -rf {} + || true
-        fi
+
 
         # 复制IPK文件（如果存在）
         if [ -d ./bin/packages ]; then
@@ -402,15 +404,16 @@ jobs:
 
         # 复制配置文件
         echo "复制配置文件..."
-        [ -f ./.config ] && cp -f ./.config ./artifact/buildinfo/${{ env.Firmware_Name }}.info || echo "警告: .config 文件不存在"
-        [ -f ./.config ] && cp -f ./.config ./artifact/firmware/${{ env.Firmware_Name }}.info || echo "警告: .config 文件不存在"
+        [ -f ./.config ] && cp -f ./.config "./artifact/buildinfo/${{ env.Firmware_Name }}.info" || echo "警告: .config 文件不存在"
+        [ -f ./.config ] && cp -f ./.config "./artifact/firmware/${{ env.Firmware_Name }}.info" || echo "警告: .config 文件不存在"
         [ -f ./feeds.conf.default ] && cp -f ./feeds.conf.default ./artifact/buildinfo/ || echo "警告: feeds.conf.default 不存在"
 
         # 重命名固件文件
-        if [ -d artifact/firmware ]; then
+        if [ -d ./artifact/firmware ]; then
           echo "重命名固件文件..."
-          cd artifact/firmware/
+          pushd ./artifact/firmware/
           rename "s/openwrt/${{ env.Firmware_Name }}/" * || true
+          popd
         else
           echo "错误: artifact/firmware 目录不存在"
           exit 1
@@ -431,31 +434,62 @@ jobs:
     - name: 生成发布标签
       id: tag
       if: steps.compile.outputs.status == 'success' && github.event.inputs.UPLOAD_RELEASE == 'true' && !cancelled()
-      run: |
-        echo "release_tag=$(date +"%Y.%m.%d.%H.%M")-${{ env.Firmware_Name }}" >> $GITHUB_OUTPUT
-        echo "release_date=$(date +"%Y.%m.%d.%H.%M")" >> $GITHUB_OUTPUT
+      run: "echo \"release_tag=$(date +\"%Y.%m.%d.%H.%M\")-${{ env.Firmware_Name }}\" >> $GITHUB_OUTPUT
+
+        echo \"release_date=$(date +\"%Y.%m.%d.%H.%M\")\" >> $GITHUB_OUTPUT
+
         touch release.txt
-        echo "
+
+        echo \"
+
         ⏰ 编译时间：${{ env.FILE_TIME1 }}
+
 
         🎈 固件版本：ImmortalWrt Custom Build
 
-        🖥 管理地址：192.168.10.1 
+
+        🖥 管理地址：192.168.10.1\ 
+
 
         🌴 用户名：root
 
+
         🛠 密码：password
 
-        📝 自定义功能：
-        - 中文界面
-        - 自定义IP地址(192.168.10.1)
-        - 优化时区设置
-        - 预设WiFi配置
-        - DHCP范围: 192.168.10.100-250
-        " >> release.txt
-        echo "status=success" >> $GITHUB_OUTPUT
 
-    - name: 自动发布固件到Releases
+        \udce6 文件说明：
+
+        - firmware/: 固件文件目录
+
+        - ipk_packages.tar.gz: IPK软件包合集
+
+
+        📝 自定义功能：
+
+        - 中文界面
+
+        - 自定义IP地址(192.168.10.1)
+
+        - 优化时区设置
+
+        - 预设WiFi配置
+
+        - DHCP范围: 192.168.10.100-250
+
+        \" >> release.txt
+
+        echo \"status=success\" >> $GITHUB_OUTPUT\n"
+
+    - name: 打包IPK文件
+      if: steps.compile.outputs.status == 'success' && !cancelled()
+      run: |
+        cd openwrt/artifact/package
+        echo "创建IPK压缩包..."
+        [ -d ./ ] && tar -czf ../ipk_packages.tar.gz ./ || echo "警告: package目录为空"
+        cd ..
+        echo "IPK打包完成"
+
+    - name: 自动发布到Releases
       uses: softprops/action-gh-release@v2
       if: steps.compile.outputs.status == 'success' && github.event.inputs.UPLOAD_RELEASE == 'true' && !cancelled()
       env:
@@ -464,7 +498,9 @@ jobs:
         name: ${{ steps.tag.outputs.release_date }} ${{ env.Firmware_Name }}
         tag_name: ${{ steps.tag.outputs.release_tag }}
         body_path: release.txt
-        files: openwrt/artifact/firmware/*
+        files: |
+          openwrt/artifact/firmware/*
+          openwrt/artifact/ipk_packages.tar.gz
         draft: false
         prerelease: false
         generate_release_notes: true
