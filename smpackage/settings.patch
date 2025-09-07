@@ -1,4 +1,11 @@
 # === 自定义设置开始 ===
+
+# 检查是否为保留配置的系统升级
+if [ -f "/etc/backup/.sysupgrade" ] || [ -f "/etc/sysupgrade.conf" ]; then
+    echo "检测到保留配置的系统升级，跳过默认设置..." > /tmp/custom_settings.log
+    exit 0
+fi
+
 echo "应用自定义默认设置..."
 
 # log potential errors
@@ -68,7 +75,9 @@ uci set zerotier.earth.fw_allow_forward='1'
 uci set zerotier.earth.fw_allow_masq='1'
 uci set zerotier.global.enabled='1'
 
-
+uci set vlmcsd.config.enabled='1'
+uci set vlmcsd.config.auto_activate='1'
+uci set vlmcsd.config.internet_access='1'
 
 
 # 提交更改
