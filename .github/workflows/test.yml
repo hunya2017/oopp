@@ -434,16 +434,12 @@ jobs:
     - name: 生成发布标签
       id: tag
       if: steps.compile.outputs.status == 'success' && github.event.inputs.UPLOAD_RELEASE == 'true' && !cancelled()
-      run: "echo \"release_tag=$(date +\"%Y.%m.%d.%H.%M\")-${{ env.Firmware_Name }}\" >> $GITHUB_OUTPUT
-
-        echo \"release_date=$(date +\"%Y.%m.%d.%H.%M\")\" >> $GITHUB_OUTPUT
-
+      run: |
+        echo "release_tag=$(date +"%Y.%m.%d.%H.%M")-${{ env.Firmware_Name }}" >> $GITHUB_OUTPUT
+        echo "release_date=$(date +"%Y.%m.%d.%H.%M")" >> $GITHUB_OUTPUT
         touch release.txt
-
-        echo \"
-
-        ⏰ 编译时间：${{ env.FILE_TIME1 }}
-
+        echo "
+        ⏰ 编译时间：$(date "+%Y年%m月%d日-%H点%M分")
 
         🎈 固件版本：ImmortalWrt Custom Build
 
