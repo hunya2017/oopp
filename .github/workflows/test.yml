@@ -353,12 +353,14 @@ jobs:
       run: |
         cd openwrt
         if [ -f .config ]; then
+          # 确保目标目录存在
+          mkdir -p $(dirname $GITHUB_WORKSPACE/$CONFIG_FILE)
           cp -f .config $GITHUB_WORKSPACE/$CONFIG_FILE
           cd $GITHUB_WORKSPACE
           
           # 配置Git
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
           # 检查 .config 文件是否有更改
           if ! git diff --quiet -- $CONFIG_FILE; then
@@ -415,16 +417,16 @@ jobs:
           find ./bin/targets/ -type d -name "packages" -exec cp -r {}/* ./artifact/package/ \; 2>/dev/null || true
         fi
 
-        # 然后复制固件文件（排除.ipk文件）
+        # 复制固件文件（排除.ipk文件）
         if [ -d ./bin/targets ]; then
           echo "复制固件文件..."
-          find ./bin/targets/ -type f ! -name "*.ipk" -exec cp -t ./artifact/firmware/ {} + || true
+          find ./bin/targets/ -type f \( -name "*.bin" -o -name "*.gz" -o -name "*.img" -o -name "*.info" \) -exec cp -t ./artifact/firmware/ {} + || true
         fi
 
-        # 最后清理不需要的目录
+        # 收集所有IPK文件到package目录
         if [ -d ./bin/targets ]; then
-          echo "清理 targets/packages 目录..."
-          find ./bin/targets/ -type d -name "packages" -exec rm -rf {} + || true
+          echo "从targets目录收集IPK文件..."
+          find ./bin/targets/ -type f -name "*.ipk" -exec cp -t ./artifact/package/ {} + || true
         fi
 
         # 复制buildinfo文件
@@ -510,11 +512,34 @@ jobs:
     - name: 打包IPK文件
       if: steps.compile.outputs.status == 'success' && !cancelled()
       run: |
-        cd openwrt/artifact/package
-        echo "创建IPK压缩包..."
-        [ -d ./ ] && tar -czf ../ipk_packages.tar.gz ./ || echo "警告: package目录为空"
-        cd ..
-        echo "IPK打包完成"
+        cd openwrt
+        echo "开始处理IPK文件..."
+
+        # 确保package目录存在
+        mkdir -p ./artifact/package
+
+        # 收集所有IPK文件
+        echo "收集IPK文件..."
+        if [ -d ./bin/packages ]; then
+          find ./bin/packages -name "*.ipk" -exec cp -f {} ./artifact/package/ \;
+        fi
+
+        if [ -d ./bin/targets ]; then
+          find ./bin/targets -name "*.ipk" -exec cp -f {} ./artifact/package/ \;
+        fi
+
+        # 创建IPK压缩包
+        cd ./artifact/package
+        if [ "$(ls -A)" ]; then
+          echo "正在创建IPK压缩包..."
+          tar -czf ../ipk_packages.tar.gz *
+          echo "✓ IPK打包完成"
+          # 显示压缩包大小
+          ls -lh ../ipk_packages.tar.gz
+        else
+          echo "⚠ 警告: 没有找到IPK文件"
+          touch ../ipk_packages.tar.gz
+        fi
 
     - name: 上传固件到Actions空间
       uses: actions/upload-artifact@v4
@@ -546,8 +571,11 @@ jobs:
         tag_name: ${{ steps.tag.outputs.release_tag }}
         body_path: release.txt
         files: |
-          openwrt/artifact/firmware/*
-          !openwrt/artifact/firmware/*.ipk
+          openwrt/artifact/firmware/*.[!i][!p][!k]
+          openwrt/artifact/firmware/*.bin
+          openwrt/artifact/firmware/*.gz
+          openwrt/artifact/firmware/*.img
+          openwrt/artifact/firmware/*.info
           openwrt/artifact/ipk_packages.tar.gz
         draft: false
         prerelease: false
