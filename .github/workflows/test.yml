@@ -1,6 +1,8 @@
 name: immortalwrt-r3s
 
 on:
+  schedule:
+  - cron: '0 18 * * 5' # 每周五北京时间凌晨2点（UTC+8）运行
   watch:
     types: [ started ]
   repository_dispatch:
@@ -344,42 +346,49 @@ jobs:
     #   if: (github.event.inputs.ssh == 'true' && github.event.inputs.ssh  != 'false') || contains(github.event.action, 'ssh')
 
     # 后续的上传和发布步骤保持不变...
-    - name: 保存配置文件
+    - name: 提交 .config 文件到源码库
       if: steps.compile.outputs.status == 'success' && !cancelled()
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         cd openwrt
-        echo "保存.config文件到代码库..."
         if [ -f .config ]; then
           cp -f .config $GITHUB_WORKSPACE/$CONFIG_FILE
           cd $GITHUB_WORKSPACE
           
           # 配置Git
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
           
-          # 同步远程仓库
-          git pull --rebase
-          
-          # 添加和提交更改
-          git add $CONFIG_FILE
-          git commit -m "bot: 更新编译配置 $(date '+%Y-%m-%d %H:%M:%S')"
-          
-          # 推送更改（最多尝试3次）
-          for i in {1..3}; do
-            if git push; then
-              echo "✓ 配置文件已更新并提交"
-              break
-            else
-              echo "第 $i 次推送失败，重试..."
-              git pull --rebase
-              if [ $i -eq 3 ]; then
-                echo "❌ 推送失败，已达到最大重试次数"
-                exit 1
+          # 检查 .config 文件是否有更改
+          if ! git diff --quiet -- $CONFIG_FILE; then
+            echo "检测到 .config 文件有更改，准备提交..."
+            
+            git add $CONFIG_FILE
+            git commit -m "bot: 更新编译配置 $(date '+%Y-%m-%d %H:%M:%S')"
+            git pull origin ${{ github.ref }}
+            
+            # 最多尝试3次推送
+            for i in {1..3}; do
+              if git push origin ${{ github.ref }}; then
+                echo "✓ 配置文件已更新并提交 (尝试 $i/3)"
+                break
+              else
+                if [ $i -eq 3 ]; then
+                  echo "❌ 在3次尝试后推送更改失败"
+                  exit 1
+                else
+                  echo "第 $i 次推送失败，5秒后重试..."
+                  sleep 5
+                fi
               fi
-            fi
-          done
+            done
+          else
+            echo "ℹ️ .config 文件没有更改，无需提交"
+          fi
         else
-          echo "⚠ .config文件不存在"
+          echo "⚠ .config 文件不存在"
+          exit 1
         fi
 
     - name: 整理固件文件
@@ -406,10 +415,10 @@ jobs:
           find ./bin/targets/ -type d -name "packages" -exec cp -r {}/* ./artifact/package/ \; 2>/dev/null || true
         fi
 
-        # 然后复制固件文件
+        # 然后复制固件文件（排除.ipk文件）
         if [ -d ./bin/targets ]; then
           echo "复制固件文件..."
-          find ./bin/targets/ -type f -exec cp -t ./artifact/firmware/ {} + || true
+          find ./bin/targets/ -type f ! -name "*.ipk" -exec cp -t ./artifact/firmware/ {} + || true
         fi
 
         # 最后清理不需要的目录
@@ -538,6 +547,7 @@ jobs:
         body_path: release.txt
         files: |
           openwrt/artifact/firmware/*
+          !openwrt/artifact/firmware/*.ipk
           openwrt/artifact/ipk_packages.tar.gz
         draft: false
         prerelease: false
