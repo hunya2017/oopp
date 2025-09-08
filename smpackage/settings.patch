@@ -38,6 +38,16 @@ uci set system.@system[0].hostname='ImmortalWrt'
 
 
 # /etc/config/dhcp
+uci set dhcp.lan.ra='server'
+uci add_list dhcp.lan.ra_flags='none'
+uci set dhcp.lan.dns_service='0'
+
+# /etc/config/network
+uci set network.lan.delegate='0'
+uci set network.lan.ip6assign='64'
+uci set network.lan.ip6ifaceid='eui64'
+
+# /etc/config/dhcp
 uci add dhcp host # =cfg05fe63
 uci set dhcp.@host[-1].name='DESKTOP-DR6M5VG'
 uci set dhcp.@host[-1].ip='192.168.10.107'
