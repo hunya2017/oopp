@@ -58,7 +58,7 @@ env:
 
 jobs:
   build_openwrt:
-    name: immortalwrt-all
+    name: immortalwrt-r3s
     runs-on: Ubuntu-22.04
     permissions:
       contents: write # 用于创建release
@@ -445,7 +445,12 @@ jobs:
         if [ -d ./artifact/firmware ]; then
           echo "重命名固件文件..."
           pushd ./artifact/firmware/
-          rename "s/openwrt/${{ env.Firmware_Name }}/" * || true
+          for file in *; do
+            if [ -f "$file" ]; then
+              new_name=$(echo "$file" | sed "s/openwrt/${{ env.Firmware_Name }}_$(date +"%Y%m%d_%H%M")/")
+              mv "$file" "$new_name"
+            fi
+          done
           popd
         else
           echo "错误: artifact/firmware 目录不存在"
@@ -574,8 +579,11 @@ jobs:
           openwrt/artifact/firmware/*.[!i][!p][!k]
           openwrt/artifact/firmware/*.bin
           openwrt/artifact/firmware/*.gz
+          openwrt/artifact/firmware/*.zst
           openwrt/artifact/firmware/*.img
           openwrt/artifact/firmware/*.info
+          openwrt/artifact/firmware/*.buildinfo
+          openwrt/artifact/buildinfo/*
           openwrt/artifact/ipk_packages.tar.gz
         draft: false
         prerelease: false
