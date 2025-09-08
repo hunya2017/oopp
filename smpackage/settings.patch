@@ -1,11 +1,5 @@
 # === 自定义设置开始 ===
 
-# 检查是否为保留配置的系统升级
-if [ -f "/etc/backup/.sysupgrade" ] || [ -f "/etc/sysupgrade.conf" ]; then
-    echo "检测到保留配置的系统升级，跳过默认设置..." > /tmp/custom_settings.log
-    exit 0
-fi
-
 echo "应用自定义默认设置..."
 
 # log potential errors
@@ -17,7 +11,7 @@ root_password="password"
 lan_ip_address="192.168.10.1"
 
 if [ -n "$root_password" ]; then
-  (echo "$root_password"; sleep 1; echo "$root_password") | passwd > /dev/null
+  (echo "$root_password"; sleep 1; echo "$root_password") | passwd root > /dev/null 2>&1
 fi
 
 # 网络设置
