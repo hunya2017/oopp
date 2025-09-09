@@ -427,14 +427,18 @@ jobs:
         cd ./artifact/firmware/
         for file in *; do
           if [ -f "$file" ] && [[ "$file" != Packages* ]]; then
-            # 处理 openwrt 开头的文件
-            if [[ "$file" == openwrt* ]]; then
-              new_name=$(echo "$file" | sed "s/openwrt/${{ env.Firmware_Name }}$DATE_SUFFIX/")
+            # 处理文件名中包含多个点的情况
+            filename="${file}"
+            # 对于特殊的压缩文件处理
+            if [[ "$file" == *.tar.gz ]] || [[ "$file" == *.tar.zst ]]; then
+              base="${file%.*.*}"  # 移除 .tar.gz 或 .tar.zst
+              ext="${file##*.*.}"   # 获取最后的扩展名
+              new_name="${base}_${DATE_SUFFIX}.tar.${ext}"
             else
-              # 为其他文件添加日期后缀（在扩展名之前）
-              extension="${file##*.}"
-              filename="${file%.*}"
-              new_name="${filename}${DATE_SUFFIX}.${extension}"
+              # 处理普通文件
+              base="${file%.*}"
+              ext="${file##*.}"
+              new_name="${base}_${DATE_SUFFIX}.${ext}"
             fi
             
             if [ "$file" != "$new_name" ]; then
@@ -448,10 +452,16 @@ jobs:
         cd ../buildinfo/
         for file in *; do
           if [ -f "$file" ] && [[ "$file" != Packages* ]]; then
-            # 为文件添加日期后缀（在扩展名之前）
-            extension="${file##*.}"
-            filename="${file%.*}"
-            new_name="${filename}${DATE_SUFFIX}.${extension}"
+            if [[ "$file" == *.conf.default ]]; then
+              # 处理 feeds.conf.default 文件
+              base="${file%.conf.default}"
+              new_name="${base}_${DATE_SUFFIX}.conf.default"
+            else
+              # 处理其他文件
+              base="${file%.*}"
+              ext="${file##*.}"
+              new_name="${base}_${DATE_SUFFIX}.${ext}"
+            fi
             
             if [ "$file" != "$new_name" ]; then
               mv -f "$file" "$new_name"
@@ -607,16 +617,20 @@ jobs:
         tag_name: ${{ steps.tag.outputs.release_tag }}
         body_path: release.txt
         files: |
-          openwrt/artifact/firmware/*_[0-9]*_[0-9]*-sysupgrade.img.gz
-          openwrt/artifact/firmware/*_[0-9]*_[0-9]*-rootfs.tar.gz
-          openwrt/artifact/firmware/*_[0-9]*_[0-9]*.tar.zst
+          openwrt/artifact/firmware/*squashfs-sysupgrade.img_[0-9]*_[0-9]*.gz
+          openwrt/artifact/firmware/*ext4-sysupgrade.img_[0-9]*_[0-9]*.gz
+          openwrt/artifact/firmware/*rootfs.tar_[0-9]*_[0-9]*.gz
+          openwrt/artifact/firmware/*.tar_[0-9]*_[0-9]*.zst
           openwrt/artifact/firmware/*_[0-9]*_[0-9]*.buildinfo
           openwrt/artifact/firmware/*_[0-9]*_[0-9]*.manifest
           openwrt/artifact/buildinfo/*_[0-9]*_[0-9]*.buildinfo
           openwrt/artifact/buildinfo/*_[0-9]*_[0-9]*.manifest
           openwrt/artifact/buildinfo/*_[0-9]*_[0-9]*.config
-          openwrt/artifact/buildinfo/*_[0-9]*_[0-9]*.conf.default
+          openwrt/artifact/buildinfo/*.conf_[0-9]*_[0-9]*.default
           openwrt/artifact/ipk_packages_[0-9]*_[0-9]*.tar.gz
+          openwrt/artifact/buildinfo/version_[0-9]*_[0-9]*.buildinfo
+          openwrt/artifact/buildinfo/feeds_[0-9]*_[0-9]*.buildinfo
+          openwrt/artifact/buildinfo/config_[0-9]*_[0-9]*.buildinfo
         draft: false
         prerelease: false
         generate_release_notes: true
