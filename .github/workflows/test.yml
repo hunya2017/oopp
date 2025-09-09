@@ -100,7 +100,7 @@ jobs:
       id: date
       run: |
         sudo timedatectl set-timezone "$TZ"
-        echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
+        echo "FILE_DATE=$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
         echo "FILE_TIME=$(date +"%m-%d %H.%M")" >> $GITHUB_ENV
         echo "FILE_TIME1=$(date "+%Y年%m月%d日-%H点%M分")" >> $GITHUB_ENV
         echo "FILE_TIME2=$(date "+%Y%m%d-%H%M")" >> $GITHUB_ENV
@@ -338,8 +338,8 @@ jobs:
 
         # 获取设备名称
         grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
-        [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
-        echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
+        [ -s DEVICE_NAME ] && echo "DEVICE_NAME=__$(cat DEVICE_NAME)" >> $GITHUB_ENV
+        echo "FILE_DATE=$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
 
     # - name: SSH连接到Actions调试编译
     #   uses: P3TERX/ssh2actions@v1.0.0
@@ -419,9 +419,9 @@ jobs:
         cp -f feeds.conf.default ./artifact/buildinfo/
         find ./bin/targets/ -type f \( -name "*.buildinfo" -o -name "*.manifest" \) -exec cp -f {} ./artifact/buildinfo/ \;
 
-        # 重命名所有文件添加日期后缀
-        echo "重命名文件添加日期后缀..."
-        DATE_SUFFIX="_$(date +"%Y%m%d_%H%M")"
+        # 重命名所有文件添加日期前缀
+        echo "重命名文件添加日期前缀..."
+        DATE_SUFFIX="$(date +"%Y%m%d_%H%M")"
 
         # 重命名固件目录下的文件
         cd ./artifact/firmware/
@@ -431,14 +431,14 @@ jobs:
             filename="${file}"
             # 对于特殊的压缩文件处理
             if [[ "$file" == *.tar.gz ]] || [[ "$file" == *.tar.zst ]]; then
-              base="${file%.*.*}"  # 移除 .tar.gz 或 .tar.zst
-              ext="${file##*.*.}"   # 获取最后的扩展名
-              new_name="${base}_${DATE_SUFFIX}.tar.${ext}"
+              fullname="${file%.*.*}"  # 移除 .tar.gz 或 .tar.zst
+              ext=".tar.${file##*.*.}"   # 获取完整扩展名（.tar.gz 或 .tar.zst）
+              new_name="${DATE_SUFFIX}__${fullname}${ext}"
             else
               # 处理普通文件
-              base="${file%.*}"
-              ext="${file##*.}"
-              new_name="${base}_${DATE_SUFFIX}.${ext}"
+              fullname="${file%.*}"
+              ext=".${file##*.}"
+              new_name="${DATE_SUFFIX}__${fullname}${ext}"
             fi
             
             if [ "$file" != "$new_name" ]; then
@@ -455,12 +455,12 @@ jobs:
             if [[ "$file" == *.conf.default ]]; then
               # 处理 feeds.conf.default 文件
               base="${file%.conf.default}"
-              new_name="${base}_${DATE_SUFFIX}.conf.default"
+              new_name="${DATE_SUFFIX}__${base}.conf.default"
             else
               # 处理其他文件
               base="${file%.*}"
-              ext="${file##*.}"
-              new_name="${base}_${DATE_SUFFIX}.${ext}"
+              ext=".${file##*.}"
+              new_name="${DATE_SUFFIX}__${base}${ext}"
             fi
             
             if [ "$file" != "$new_name" ]; then
@@ -469,12 +469,6 @@ jobs:
             fi
           fi
         done
-
-        # 重命名ipk压缩包
-        if [ -f "../ipk_packages.tar.gz" ]; then
-          mv -f "../ipk_packages.tar.gz" "../ipk_packages${DATE_SUFFIX}.tar.gz"
-          echo "已重命名: ipk_packages.tar.gz -> ipk_packages${DATE_SUFFIX}.tar.gz"
-        fi
 
         echo "=== 固件文件整理完成 ==="
 
@@ -561,18 +555,28 @@ jobs:
         cd openwrt
         echo "开始处理IPK文件..."
 
-        # 确保package目录存在
+        # 清理并创建package目录
+        rm -rf ./artifact/package
         mkdir -p ./artifact/package
 
         # 收集所有IPK文件
         echo "收集IPK文件..."
+        total_ipk=0
         if [ -d ./bin/packages ]; then
           find ./bin/packages -name "*.ipk" -exec cp -f {} ./artifact/package/ \;
+          packages_count=$(find ./bin/packages -name "*.ipk" | wc -l)
+          total_ipk=$((total_ipk + packages_count))
+          echo "从 packages 目录收集到 $packages_count 个 IPK 文件"
         fi
 
         if [ -d ./bin/targets ]; then
           find ./bin/targets -name "*.ipk" -exec cp -f {} ./artifact/package/ \;
+          targets_count=$(find ./bin/targets -name "*.ipk" | wc -l)
+          total_ipk=$((total_ipk + targets_count))
+          echo "从 targets 目录收集到 $targets_count 个 IPK 文件"
         fi
+
+        echo "总共收集到 $total_ipk 个 IPK 文件"
 
         # 创建IPK压缩包
         cd ./artifact/package
@@ -582,6 +586,14 @@ jobs:
           echo "✓ IPK打包完成"
           # 显示压缩包大小
           ls -lh ../ipk_packages.tar.gz
+          # 重命名ipk压缩包
+          DATE_SUFFIX="$(date +"%Y%m%d_%H%M")"
+          mv -f "../ipk_packages.tar.gz" "../${DATE_SUFFIX}__ipk_packages.tar.gz"
+          echo "已重命名: ipk_packages.tar.gz -> ${DATE_SUFFIX}__ipk_packages.tar.gz"
+          # 删除原始IPK文件
+          echo "正在清理原始IPK文件..."
+          rm -rf ./*.ipk
+          echo "✓ 原始IPK文件已清理"
         else
           echo "⚠ 警告: 没有找到IPK文件"
           touch ../ipk_packages.tar.gz
@@ -591,7 +603,7 @@ jobs:
       uses: actions/upload-artifact@v4
       if: steps.compile.outputs.status == 'success' && !cancelled()
       with:
-        name: ${{ env.Firmware_Name }}-${{ env.FILE_DATE }}
+        name: ${{ env.Firmware_Name }}-$(date +"%Y%m%d%H%M")
         path: |
           openwrt/artifact/firmware/*
           openwrt/artifact/buildinfo/*
@@ -603,7 +615,7 @@ jobs:
       if: steps.compile.outputs.status == 'success' && !cancelled()
       with:
         name: ${{ env.Firmware_Name }}-packages-${{ env.FILE_DATE }}
-        path: openwrt/artifact/ipk_packages.tar.gz
+        path: openwrt/artifact/*__ipk_packages.tar.gz
         retention-days: 90
         compression-level: 9
 
@@ -617,20 +629,9 @@ jobs:
         tag_name: ${{ steps.tag.outputs.release_tag }}
         body_path: release.txt
         files: |
-          openwrt/artifact/firmware/*squashfs-sysupgrade.img_[0-9]*_[0-9]*.gz
-          openwrt/artifact/firmware/*ext4-sysupgrade.img_[0-9]*_[0-9]*.gz
-          openwrt/artifact/firmware/*rootfs.tar_[0-9]*_[0-9]*.gz
-          openwrt/artifact/firmware/*.tar_[0-9]*_[0-9]*.zst
-          openwrt/artifact/firmware/*_[0-9]*_[0-9]*.buildinfo
-          openwrt/artifact/firmware/*_[0-9]*_[0-9]*.manifest
-          openwrt/artifact/buildinfo/*_[0-9]*_[0-9]*.buildinfo
-          openwrt/artifact/buildinfo/*_[0-9]*_[0-9]*.manifest
-          openwrt/artifact/buildinfo/*_[0-9]*_[0-9]*.config
-          openwrt/artifact/buildinfo/*.conf_[0-9]*_[0-9]*.default
-          openwrt/artifact/ipk_packages_[0-9]*_[0-9]*.tar.gz
-          openwrt/artifact/buildinfo/version_[0-9]*_[0-9]*.buildinfo
-          openwrt/artifact/buildinfo/feeds_[0-9]*_[0-9]*.buildinfo
-          openwrt/artifact/buildinfo/config_[0-9]*_[0-9]*.buildinfo
+          openwrt/artifact/firmware/*
+          openwrt/artifact/buildinfo/*
+          openwrt/artifact/*.tar.gz
         draft: false
         prerelease: false
         generate_release_notes: true
