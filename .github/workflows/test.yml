@@ -400,74 +400,49 @@ jobs:
         cd openwrt
         mkdir -p ./artifact/firmware ./artifact/package ./artifact/buildinfo
 
+        echo "=== 开始整理固件文件 ==="
+
         # 确保目标目录存在
         [ -d ./bin/targets ] || { echo "警告: bin/targets 目录不存在"; exit 1; }
 
-        echo "=== 开始整理固件文件 ==="
+        # 复制所有固件相关文件
+        echo "复制固件文件..."
+        find ./bin/targets/ -type f \( -name "*.bin" -o -name "*.gz" -o -name "*.img" -o -name "*.info" -o -name "*.buildinfo" -o -name "*.zst" -o -name "*.manifest" \) -not -path "*/packages/*" -exec cp -f -t ./artifact/firmware/ {} + || true
 
-        # 首先复制所有IPK文件
-        echo "开始复制IPK文件..."
-        if [ -d ./bin/packages ]; then
-          echo "从 bin/packages 复制IPK文件..."
-          find ./bin/packages/ -type f -name "*.ipk" -exec cp -t ./artifact/package/ {} + || true
-        fi
+        # 复制所有软件包
+        echo "复制软件包..."
+        find ./bin -name "*.ipk" -exec cp -f {} ./artifact/package/ \;
 
-        if [ -d ./bin/targets ]; then
-          echo "从 targets/packages 复制IPK文件..."
-          find ./bin/targets/ -type d -name "packages" -exec cp -r {}/* ./artifact/package/ \; 2>/dev/null || true
-        fi
-
-        # 复制固件文件（排除.ipk文件）
-        if [ -d ./bin/targets ]; then
-          echo "复制固件文件..."
-          find ./bin/targets/ -type f \( -name "*.bin" -o -name "*.gz" -o -name "*.img" -o -name "*.info" \) -exec cp -t ./artifact/firmware/ {} + || true
-        fi
-
-        # 收集所有IPK文件到package目录
-        if [ -d ./bin/targets ]; then
-          echo "从targets目录收集IPK文件..."
-          find ./bin/targets/ -type f -name "*.ipk" -exec cp -t ./artifact/package/ {} + || true
-        fi
-
-        # 复制buildinfo文件
-        if [ -d ./bin/targets ]; then
-          echo "复制buildinfo文件..."
-          find ./bin/targets/ -type f \( -name "*.buildinfo" -o -name "*.manifest" \) -exec cp -t ./artifact/buildinfo/ {} + || true
-        fi
-
-        # 复制配置文件
-        echo "复制配置文件..."
-        [ -f ./.config ] && cp -f ./.config "./artifact/buildinfo/${{ env.Firmware_Name }}.info" || echo "警告: .config 文件不存在"
-        [ -f ./.config ] && cp -f ./.config "./artifact/firmware/${{ env.Firmware_Name }}.info" || echo "警告: .config 文件不存在"
-        [ -f ./feeds.conf.default ] && cp -f ./feeds.conf.default ./artifact/buildinfo/ || echo "警告: feeds.conf.default 不存在"
+        # 复制所有构建信息
+        echo "复制构建信息..."
+        cp -f .config "./artifact/buildinfo/${{ env.Firmware_Name }}.config"
+        cp -f feeds.conf.default ./artifact/buildinfo/
+        find ./bin/targets/ -type f \( -name "*.buildinfo" -o -name "*.manifest" \) -exec cp -f {} ./artifact/buildinfo/ \;
 
         # 重命名固件文件
-        if [ -d ./artifact/firmware ]; then
-          echo "重命名固件文件..."
-          pushd ./artifact/firmware/
-          for file in *; do
-            if [ -f "$file" ]; then
+        echo "重命名固件文件..."
+        cd ./artifact/firmware/
+        for file in *; do
+          if [ -f "$file" ] && [[ "$file" != Packages* ]]; then
+            if [[ "$file" == openwrt* ]]; then
               new_name=$(echo "$file" | sed "s/openwrt/${{ env.Firmware_Name }}_$(date +"%Y%m%d_%H%M")/")
-              mv "$file" "$new_name"
+              if [ "$file" != "$new_name" ]; then
+                mv -f "$file" "$new_name"
+                echo "已重命名: $file -> $new_name"
+              fi
             fi
-          done
-          popd
-        else
-          echo "错误: artifact/firmware 目录不存在"
-          exit 1
-        fi
+          fi
+        done
 
         echo "=== 固件文件整理完成 ==="
 
-        # 显示整理后的文件列表
-        echo "固件目录内容:"
-        ls -l ./artifact/firmware/
-        echo "配置目录内容:"
-        ls -l ./artifact/buildinfo/
-        if [ -d ./artifact/package ]; then
-          echo "软件包目录内容:"
-          ls -l ./artifact/package/
-        fi
+        # 显示整理后的文件列表和大小
+        echo "固件文件列表:"
+        ls -lh ./
+        echo "构建信息文件列表:"
+        ls -lh ../../artifact/buildinfo/
+        echo "软件包数量统计:"
+        find ../../artifact/package/ -name "*.ipk" | wc -l
 
     - name: 生成发布标签
       id: tag
@@ -513,6 +488,30 @@ jobs:
         \" >> release.txt
 
         echo \"status=success\" >> $GITHUB_OUTPUT\n"
+
+    - name: 检查文件完整性
+      if: steps.compile.outputs.status == 'success' && !cancelled()
+      run: |
+        cd openwrt/artifact
+        echo "=== 检查文件完整性 ==="
+
+        # 检查固件文件
+        echo "固件文件校验:"
+        find firmware/ -type f -exec md5sum {} \;
+
+        # 检查构建信息
+        echo "构建信息校验:"
+        find buildinfo/ -type f -exec md5sum {} \;
+
+        # 统计文件数量和大小
+        echo "=== 文件统计 ==="
+        echo "固件文件数量: $(find firmware/ -type f | wc -l)"
+        echo "构建信息文件数量: $(find buildinfo/ -type f | wc -l)"
+        echo "软件包数量: $(find package/ -name "*.ipk" | wc -l)"
+
+        # 显示总大小
+        echo "=== 空间占用 ==="
+        du -sh firmware/ buildinfo/ package/
 
     - name: 打包IPK文件
       if: steps.compile.outputs.status == 'success' && !cancelled()
@@ -576,15 +575,16 @@ jobs:
         tag_name: ${{ steps.tag.outputs.release_tag }}
         body_path: release.txt
         files: |
-          openwrt/artifact/firmware/*.[!i][!p][!k]
           openwrt/artifact/firmware/*.bin
+          openwrt/artifact/firmware/*.img*
           openwrt/artifact/firmware/*.gz
           openwrt/artifact/firmware/*.zst
-          openwrt/artifact/firmware/*.img
           openwrt/artifact/firmware/*.info
           openwrt/artifact/firmware/*.buildinfo
+          openwrt/artifact/firmware/*.manifest
           openwrt/artifact/buildinfo/*
           openwrt/artifact/ipk_packages.tar.gz
         draft: false
         prerelease: false
         generate_release_notes: true
+        fail_on_unmatched_files: false
