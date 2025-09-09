@@ -1,92 +1,109 @@
 # === 自定义设置开始 ===
 
-echo "应用自定义默认设置..."
+echo "开始应用自定义设置..."
 
-# log potential errors
-exec >/tmp/setup.log 2>&1
-# wlan_name="ImmortalWrt"
-# wlan_password="12345678"
-
+# 定义默认值
 root_password="password"
 lan_ip_address="192.168.10.1"
+wlan_name="ImmortalWrt"
+wlan_password="12345678"
 
-if [ -n "$root_password" ]; then
-  (echo "$root_password"; sleep 1; echo "$root_password") | passwd root > /dev/null 2>&1
+# root 密码（仅在默认还是空密码时才设置）
+if passwd -S root 2>/dev/null | grep -q "NP"; then
+  echo "设置 root 密码"
+  (echo "$root_password"; sleep 1; echo "$root_password") | passwd root >/dev/null 2>&1
 fi
 
-# 网络设置
-# More options: https://openwrt.org/docs/guide-user/base-system/basic-networking
-if [ -n "$lan_ip_address" ]; then
+# LAN IP（如果已有配置就不动）
+if [ -n "$lan_ip_address" ] && [ "$(uci -q get network.lan.ipaddr)" != "$lan_ip_address" ]; then
+  echo "设置 LAN IP 为 $lan_ip_address"
   uci set network.lan.ipaddr="$lan_ip_address"
-  # DHCP设置
-  uci set dhcp.lan.leasetime='2m'
 fi
 
-# Configure WLAN
-# More options: https://openwrt.org/docs/guide-user/network/wifi/basic#wi-fi_interfaces
-if [ -n "$wlan_name" -a -n "$wlan_password" -a ${#wlan_password} -ge 8 ]; then
-  uci set wireless.@wifi-device[0].disabled='0'
-  uci set wireless.@wifi-iface[0].disabled='0'
-  uci set wireless.@wifi-iface[0].encryption='psk2'
-  uci set wireless.@wifi-iface[0].ssid="$wlan_name"
-  uci set wireless.@wifi-iface[0].key="$wlan_password"
+# DHCP 租期（只在未配置时设置）
+uci -q get dhcp.lan.leasetime >/dev/null || uci set dhcp.lan.leasetime='2m'
+
+# WiFi（仅在无线未启用时才配置）
+if [ -n "$wlan_name" ] && [ -n "$wlan_password" ] && [ ${#wlan_password} -ge 8 ]; then
+  if [ "$(uci -q get wireless.@wifi-device[0].disabled)" = "1" ]; then
+    echo "启用并配置 WiFi"
+    uci set wireless.@wifi-device[0].disabled='0'
+    uci set wireless.@wifi-iface[0].disabled='0'
+    uci set wireless.@wifi-iface[0].encryption='psk2'
+    uci set wireless.@wifi-iface[0].ssid="$wlan_name"
+    uci set wireless.@wifi-iface[0].key="$wlan_password"
+  fi
 fi
 
+# 系统设置（如果主机名未修改才设置）
+if [ "$(uci -q get system.@system[0].hostname)" = "OpenWrt" ]; then
+  uci set system.@system[0].hostname='ImmortalWrt'
+fi
 
-# 系统设置
-uci set system.@system[0].hostname='ImmortalWrt'
+# 基本网络设置（只在未配置时设置）
+uci -q get network.lan.delegate >/dev/null || uci set network.lan.delegate='0'
+uci -q get network.lan.ip6assign >/dev/null || uci set network.lan.ip6assign='64'
+uci -q get network.lan.ip6ifaceid >/dev/null || uci set network.lan.ip6ifaceid='eui64'
 
+# DHCP 高级设置（只在未配置时设置）
+uci -q get dhcp.lan.ra >/dev/null || uci set dhcp.lan.ra='server'
+uci -q get dhcp.lan.ra_flags >/dev/null || uci add_list dhcp.lan.ra_flags='none'
+uci -q get dhcp.lan.dns_service >/dev/null || uci set dhcp.lan.dns_service='0'
 
-# /etc/config/dhcp
-uci set dhcp.lan.ra='server'
-uci add_list dhcp.lan.ra_flags='none'
-uci set dhcp.lan.dns_service='0'
+# Host 绑定（先检查是否已存在该 MAC）
+add_static_host() {
+  local name="$1" ip="$2" mac="$3"
+  if ! uci show dhcp | grep -q "$mac"; then
+    echo "新增静态租约 $name $ip $mac"
+    uci add dhcp host
+    uci set dhcp.@host[-1].name="$name"
+    uci set dhcp.@host[-1].ip="$ip"
+    uci add_list dhcp.@host[-1].mac="$mac"
+  fi
+}
 
-# /etc/config/network
-uci set network.lan.delegate='0'
-uci set network.lan.ip6assign='64'
-uci set network.lan.ip6ifaceid='eui64'
+# 添加静态地址绑定
+add_static_host "DESKTOP-DR6M5VG" "192.168.10.107" "30:9C:23:E1:E3:72"
+add_static_host "armbian" "192.168.10.158" "6A:CE:3B:D4:CB:8B"
+add_static_host "WIN-LMSJ088AVIQ" "192.168.10.180" "7C:2B:E1:13:6E:83"
 
-# /etc/config/dhcp
-uci add dhcp host # =cfg05fe63
-uci set dhcp.@host[-1].name='DESKTOP-DR6M5VG'
-uci set dhcp.@host[-1].ip='192.168.10.107'
-uci add_list dhcp.@host[-1].mac='30:9C:23:E1:E3:72'
-uci add dhcp host # =cfg06fe63
-uci set dhcp.@host[-1].name='armbian'
-uci set dhcp.@host[-1].ip='192.168.10.158'
-uci add_list dhcp.@host[-1].mac='6A:CE:3B:D4:CB:8B'
-uci add dhcp host # =cfg07fe63
-uci set dhcp.@host[-1].name='WIN-LMSJ088AVIQ'
-uci set dhcp.@host[-1].ip='192.168.10.180'
-uci add_list dhcp.@host[-1].mac='7C:2B:E1:13:6E:83'
-# /etc/config/zerotier
-uci del zerotier.earth.enabled
-uci del zerotier.earth.allow_managed
-uci del zerotier.earth.allow_global
-uci del zerotier.earth.allow_default
-uci del zerotier.earth.allow_dns
-uci del zerotier.earth.fw_allow_input
-uci del zerotier.earth.fw_allow_forward
-uci del zerotier.earth.fw_allow_masq
-uci set zerotier.earth.id='d3ecf5726da3eeac'
-uci del zerotier.global.enabled
-uci set zerotier.earth.allow_global='1'
-uci set zerotier.earth.allow_default='1'
-uci set zerotier.earth.allow_dns='1'
-uci set zerotier.earth.fw_allow_input='1'
-uci set zerotier.earth.fw_allow_forward='1'
-uci set zerotier.earth.fw_allow_masq='1'
-uci set zerotier.global.enabled='1'
+# zerotier 设置（如果安装了才配置）
+if opkg list-installed | grep -q "^zerotier"; then
+  # 删除现有配置
+  uci -q del zerotier.earth.enabled
+  uci -q del zerotier.earth.allow_managed
+  uci -q del zerotier.earth.allow_global
+  uci -q del zerotier.earth.allow_default
+  uci -q del zerotier.earth.allow_dns
+  uci -q del zerotier.earth.fw_allow_input
+  uci -q del zerotier.earth.fw_allow_forward
+  uci -q del zerotier.earth.fw_allow_masq
+  uci -q del zerotier.global.enabled
 
-uci set vlmcsd.config.enabled='1'
-uci set vlmcsd.config.auto_activate='1'
-uci set vlmcsd.config.internet_access='1'
+  # 设置新配置
+  uci set zerotier.earth.id='d3ecf5726da3eeac'
+  uci set zerotier.earth.allow_global='1'
+  uci set zerotier.earth.allow_default='1'
+  uci set zerotier.earth.allow_dns='1'
+  uci set zerotier.earth.fw_allow_input='1'
+  uci set zerotier.earth.fw_allow_forward='1'
+  uci set zerotier.earth.fw_allow_masq='1'
+  uci set zerotier.global.enabled='1'
+fi
 
-# /etc/config/momo
-uci set momo.proxy.proxy_tcp_dport='21 22 80 110 143 194 443 465 853 993 995 8080 8443'
-uci set momo.proxy.proxy_udp_dport='123 443 8443'
-uci set momo.cfg0493d7.dns='0'
+# vlmcsd 设置（如果安装了才配置）
+if opkg list-installed | grep -q "^vlmcsd"; then
+  uci -q get vlmcsd.config.enabled >/dev/null || uci set vlmcsd.config.enabled='1'
+  uci -q get vlmcsd.config.auto_activate >/dev/null || uci set vlmcsd.config.auto_activate='1'
+  uci -q get vlmcsd.config.internet_access >/dev/null || uci set vlmcsd.config.internet_access='1'
+fi
+
+# momo 设置（如果安装了才配置）
+if opkg list-installed | grep -q "^momo"; then
+  uci -q get momo.proxy.proxy_tcp_dport >/dev/null || uci set momo.proxy.proxy_tcp_dport='21 22 80 110 143 194 443 465 853 993 995 8080 8443'
+  uci -q get momo.proxy.proxy_udp_dport >/dev/null || uci set momo.proxy.proxy_udp_dport='123 443 8443'
+  uci -q get momo.cfg0493d7.dns >/dev/null || uci set momo.cfg0493d7.dns='0'
+fi
 
 # 提交更改
 uci commit
