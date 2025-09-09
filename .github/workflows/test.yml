@@ -575,14 +575,17 @@ jobs:
         tag_name: ${{ steps.tag.outputs.release_tag }}
         body_path: release.txt
         files: |
-          openwrt/artifact/firmware/*.bin
-          openwrt/artifact/firmware/*.img*
-          openwrt/artifact/firmware/*.gz
-          openwrt/artifact/firmware/*.zst
-          openwrt/artifact/firmware/*.info
+          openwrt/artifact/firmware/*-sysupgrade.img.gz
+          openwrt/artifact/firmware/*-rootfs.tar.gz
+          openwrt/artifact/firmware/*.tar.zst
           openwrt/artifact/firmware/*.buildinfo
           openwrt/artifact/firmware/*.manifest
-          openwrt/artifact/buildinfo/*
+          openwrt/artifact/buildinfo/version.buildinfo
+          openwrt/artifact/buildinfo/feeds.buildinfo
+          openwrt/artifact/buildinfo/config.buildinfo
+          openwrt/artifact/buildinfo/*.manifest
+          openwrt/artifact/buildinfo/feeds.conf.default
+          openwrt/artifact/buildinfo/*.config
           openwrt/artifact/ipk_packages.tar.gz
         draft: false
         prerelease: false
