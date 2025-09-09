@@ -419,20 +419,52 @@ jobs:
         cp -f feeds.conf.default ./artifact/buildinfo/
         find ./bin/targets/ -type f \( -name "*.buildinfo" -o -name "*.manifest" \) -exec cp -f {} ./artifact/buildinfo/ \;
 
-        # 重命名固件文件
-        echo "重命名固件文件..."
+        # 重命名所有文件添加日期后缀
+        echo "重命名文件添加日期后缀..."
+        DATE_SUFFIX="_$(date +"%Y%m%d_%H%M")"
+
+        # 重命名固件目录下的文件
         cd ./artifact/firmware/
         for file in *; do
           if [ -f "$file" ] && [[ "$file" != Packages* ]]; then
+            # 处理 openwrt 开头的文件
             if [[ "$file" == openwrt* ]]; then
-              new_name=$(echo "$file" | sed "s/openwrt/${{ env.Firmware_Name }}_$(date +"%Y%m%d_%H%M")/")
-              if [ "$file" != "$new_name" ]; then
-                mv -f "$file" "$new_name"
-                echo "已重命名: $file -> $new_name"
-              fi
+              new_name=$(echo "$file" | sed "s/openwrt/${{ env.Firmware_Name }}$DATE_SUFFIX/")
+            else
+              # 为其他文件添加日期后缀（在扩展名之前）
+              extension="${file##*.}"
+              filename="${file%.*}"
+              new_name="${filename}${DATE_SUFFIX}.${extension}"
+            fi
+            
+            if [ "$file" != "$new_name" ]; then
+              mv -f "$file" "$new_name"
+              echo "已重命名: $file -> $new_name"
             fi
           fi
         done
+
+        # 重命名构建信息目录下的文件
+        cd ../buildinfo/
+        for file in *; do
+          if [ -f "$file" ] && [[ "$file" != Packages* ]]; then
+            # 为文件添加日期后缀（在扩展名之前）
+            extension="${file##*.}"
+            filename="${file%.*}"
+            new_name="${filename}${DATE_SUFFIX}.${extension}"
+            
+            if [ "$file" != "$new_name" ]; then
+              mv -f "$file" "$new_name"
+              echo "已重命名: $file -> $new_name"
+            fi
+          fi
+        done
+
+        # 重命名ipk压缩包
+        if [ -f "../ipk_packages.tar.gz" ]; then
+          mv -f "../ipk_packages.tar.gz" "../ipk_packages${DATE_SUFFIX}.tar.gz"
+          echo "已重命名: ipk_packages.tar.gz -> ipk_packages${DATE_SUFFIX}.tar.gz"
+        fi
 
         echo "=== 固件文件整理完成 ==="
 
@@ -575,18 +607,16 @@ jobs:
         tag_name: ${{ steps.tag.outputs.release_tag }}
         body_path: release.txt
         files: |
-          openwrt/artifact/firmware/*-sysupgrade.img.gz
-          openwrt/artifact/firmware/*-rootfs.tar.gz
-          openwrt/artifact/firmware/*.tar.zst
-          openwrt/artifact/firmware/*.buildinfo
-          openwrt/artifact/firmware/*.manifest
-          openwrt/artifact/buildinfo/version.buildinfo
-          openwrt/artifact/buildinfo/feeds.buildinfo
-          openwrt/artifact/buildinfo/config.buildinfo
-          openwrt/artifact/buildinfo/*.manifest
-          openwrt/artifact/buildinfo/feeds.conf.default
-          openwrt/artifact/buildinfo/*.config
-          openwrt/artifact/ipk_packages.tar.gz
+          openwrt/artifact/firmware/*_[0-9]*_[0-9]*-sysupgrade.img.gz
+          openwrt/artifact/firmware/*_[0-9]*_[0-9]*-rootfs.tar.gz
+          openwrt/artifact/firmware/*_[0-9]*_[0-9]*.tar.zst
+          openwrt/artifact/firmware/*_[0-9]*_[0-9]*.buildinfo
+          openwrt/artifact/firmware/*_[0-9]*_[0-9]*.manifest
+          openwrt/artifact/buildinfo/*_[0-9]*_[0-9]*.buildinfo
+          openwrt/artifact/buildinfo/*_[0-9]*_[0-9]*.manifest
+          openwrt/artifact/buildinfo/*_[0-9]*_[0-9]*.config
+          openwrt/artifact/buildinfo/*_[0-9]*_[0-9]*.conf.default
+          openwrt/artifact/ipk_packages_[0-9]*_[0-9]*.tar.gz
         draft: false
         prerelease: false
         generate_release_notes: true
