@@ -5,8 +5,8 @@ echo "开始应用自定义设置..."
 # 定义默认值
 root_password="password"
 lan_ip_address="192.168.10.1"
-wlan_name="ImmortalWrt"
-wlan_password="12345678"
+# wlan_name="ImmortalWrt"
+# wlan_password="12345678"
 
 # root 密码（仅在默认还是空密码时才设置）
 if passwd -S root 2>/dev/null | grep -q "NP"; then
@@ -98,12 +98,6 @@ if opkg list-installed | grep -q "^vlmcsd"; then
   uci -q get vlmcsd.config.internet_access >/dev/null || uci set vlmcsd.config.internet_access='1'
 fi
 
-# momo 设置（如果安装了才配置）
-if opkg list-installed | grep -q "^momo"; then
-  uci -q get momo.proxy.proxy_tcp_dport >/dev/null || uci set momo.proxy.proxy_tcp_dport='21 22 80 110 143 194 443 465 853 993 995 8080 8443'
-  uci -q get momo.proxy.proxy_udp_dport >/dev/null || uci set momo.proxy.proxy_udp_dport='123 443 8443'
-  uci -q get momo.cfg0493d7.dns >/dev/null || uci set momo.cfg0493d7.dns='0'
-fi
 
 # 提交更改
 uci commit
