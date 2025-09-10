@@ -603,12 +603,15 @@ jobs:
       uses: actions/upload-artifact@v4
       if: steps.compile.outputs.status == 'success' && !cancelled()
       with:
-        name: ${{ env.Firmware_Name }}-$(date +"%Y%m%d%H%M")
+        name: ${{ env.Firmware_Name }}-${{ env.FILE_DATE }}
         path: |
           openwrt/artifact/firmware/*
           openwrt/artifact/buildinfo/*
         retention-days: 90
         compression-level: 9
+        if-no-files-found: warn
+        overwrite: false
+        include-hidden-files: false
 
     - name: 上传IPK包到Actions空间
       uses: actions/upload-artifact@v4
@@ -618,6 +621,33 @@ jobs:
         path: openwrt/artifact/*__ipk_packages.tar.gz
         retention-days: 90
         compression-level: 9
+
+    # 处理重复文件
+    - name: 处理重复文件
+      if: steps.compile.outputs.status == 'success' && (github.event.inputs.UPLOAD_RELEASE == 'true' || github.event_name == 'schedule') && !cancelled()
+      run: |
+        cd openwrt/artifact
+        # 创建临时目录存放去重后的文件
+        mkdir -p unique_files
+        # 移动所有文件到临时目录，如果有重复则保留最新的
+        for file in firmware/* buildinfo/* *.tar.gz; do
+          if [ -f "$file" ]; then
+            base_name=$(basename "$file")
+            # 如果目标文件存在，则只在新文件更新时才替换
+            if [ -f "unique_files/$base_name" ]; then
+              if [ "$file" -nt "unique_files/$base_name" ]; then
+                mv -f "$file" "unique_files/$base_name"
+              fi
+            else
+              mv "$file" "unique_files/$base_name"
+            fi
+          fi
+        done
+        # 清理原目录
+        rm -rf firmware buildinfo *.tar.gz
+        # 移动文件回原位置
+        mv unique_files/* ./
+        rmdir unique_files
 
     - name: 自动发布到Releases
       uses: softprops/action-gh-release@v2
@@ -629,10 +659,10 @@ jobs:
         tag_name: ${{ steps.tag.outputs.release_tag }}
         body_path: release.txt
         files: |
-          openwrt/artifact/firmware/*
-          openwrt/artifact/buildinfo/*
-          openwrt/artifact/*.tar.gz
+          openwrt/artifact/*
         draft: false
         prerelease: false
         generate_release_notes: true
         fail_on_unmatched_files: false
+        overwrite_files: true
+        overwrite: true
