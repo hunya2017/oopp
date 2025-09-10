@@ -2,7 +2,7 @@ name: immortalwrt-r3s
 
 on:
   schedule:
-  - cron: '0 18 * * *' # 每周五北京时间凌晨2点（UTC+8）运行
+  - cron: '0 18 * * 5' # 每周五北京时间凌晨2点（UTC+8）运行
   watch:
     types: [ started ]
   repository_dispatch:
