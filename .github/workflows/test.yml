@@ -665,4 +665,3 @@ jobs:
         generate_release_notes: true
         fail_on_unmatched_files: false
         overwrite_files: true
-        overwrite: true
