@@ -4778,6 +4778,9 @@ CONFIG_PACKAGE_libfdisk=y
 # CONFIG_PACKAGE_libgee is not set
 # CONFIG_PACKAGE_libgensio is not set
 # CONFIG_PACKAGE_libgensiocpp is not set
+# CONFIG_PACKAGE_libgio-environmentproxy is not set
+# CONFIG_PACKAGE_libgio-gnutls is not set
+# CONFIG_PACKAGE_libgio-openssl is not set
 CONFIG_PACKAGE_libgmp=y
 # CONFIG_PACKAGE_libgpg-error is not set
 # CONFIG_PACKAGE_libgpgme is not set
@@ -6093,13 +6096,11 @@ CONFIG_PACKAGE_iptables-nft=y
 # CONFIG_PACKAGE_natpmpc is not set
 CONFIG_PACKAGE_nftables-json=y
 # CONFIG_PACKAGE_nftables-nojson is not set
-# CONFIG_PACKAGE_openappid is not set
 # CONFIG_PACKAGE_shorewall is not set
 # CONFIG_PACKAGE_shorewall-core is not set
 # CONFIG_PACKAGE_shorewall-lite is not set
 # CONFIG_PACKAGE_shorewall6 is not set
 # CONFIG_PACKAGE_shorewall6-lite is not set
-# CONFIG_PACKAGE_snort3 is not set
 # CONFIG_PACKAGE_xtables-legacy is not set
 CONFIG_PACKAGE_xtables-nft=y
 # end of Firewall
@@ -6355,6 +6356,7 @@ CONFIG_PACKAGE_wsdd2=y
 #
 # Routing and Redirection
 #
+# CONFIG_PACKAGE_ampr-ripd is not set
 # CONFIG_PACKAGE_babel-pinger is not set
 # CONFIG_PACKAGE_babeld is not set
 # CONFIG_PACKAGE_batmand is not set
@@ -7130,6 +7132,7 @@ CONFIG_PACKAGE_xray-core=y
 # CONFIG_PACKAGE_ices is not set
 # CONFIG_PACKAGE_lame is not set
 # CONFIG_PACKAGE_lame-lib is not set
+# CONFIG_PACKAGE_libfluidsynth is not set
 # CONFIG_PACKAGE_liblo-utils is not set
 # CONFIG_PACKAGE_libwavpack is not set
 # CONFIG_PACKAGE_madplay is not set
