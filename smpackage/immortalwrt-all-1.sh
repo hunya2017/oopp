@@ -55,7 +55,8 @@ echo "检查是否需要添加自定义软件包..."
 
 # 示例: 克隆额外的软件包
 # git clone https://github.com/kenzok8/openwrt-packages.git package/custom-packages
-# git clone https://github.com/xiaorouji/openwrt-passwall.git package/passwall
+git clone https://github.com/xiaorouji/openwrt-passwall2.git package/passwall2
+
 # 添加 iStore
 git clone https://github.com/linkease/istore package/istore
 
