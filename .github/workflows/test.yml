@@ -302,6 +302,10 @@ jobs:
 
     - name: 编译固件
       id: compile
+      env:
+        # 禁用Rust CI LLVM下载，避免404错误
+        BOOTSTRAP_DOWNLOAD_CI_LLVM: "false"
+        BOOTSTRAP_ON_FAIL: "1"
       run: |
         cd openwrt
         echo "CPU线程数: $(nproc)"

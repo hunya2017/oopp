@@ -145,6 +145,39 @@ echo "应用预设补丁..."
 # 这里可以应用一些通用的补丁
 # 例如修复已知问题或添加功能
 
+# ===== 修复Rust编译问题 =====
+echo "配置Rust编译环境..."
+
+# 禁用CI LLVM下载（通常在GitHub Actions中不可用）
+if [ -d "feeds/packages/lang/rust" ]; then
+    echo "准备Rust编译修复..."
+    
+    # 设置环境变量以禁用CI LLVM
+    export BOOTSTRAP_DOWNLOAD_CI_LLVM=false
+    export BOOTSTRAP_ON_FAIL=1
+    
+    # 创建rust.mk环境脚本
+    echo "export BOOTSTRAP_DOWNLOAD_CI_LLVM=false" > /tmp/rust-env.sh
+    echo "export BOOTSTRAP_ON_FAIL=1" >> /tmp/rust-env.sh
+    
+    echo "✓ Rust编译环境变量已配置"
+    echo "  - BOOTSTRAP_DOWNLOAD_CI_LLVM=false"
+    echo "  - BOOTSTRAP_ON_FAIL=1"
+fi
+
+# ===== 显示编译准备完成 =====
+echo "==================="
+echo "源码准备完成！"
+echo "系统时间: $(date)"
+echo "当前工作目录: $(pwd)"
+echo "Git分支: $(git branch --show-current 2>/dev/null || echo '未知')"
+echo "Git提交: $(git rev-parse --short HEAD 2>/dev/null || echo '未知')"
+echo "可用CPU核心: $(nproc)"
+echo "可用磁盘: $(df -h . | tail -1)"
+echo "==================="
+
+echo "=== ImmortalWrt编译前自定义脚本1执行完成 ==="
+
 # ===== 验证源码完整性 =====
 echo "验证源码完整性..."
 

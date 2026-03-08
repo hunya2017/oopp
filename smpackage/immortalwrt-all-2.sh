@@ -113,6 +113,62 @@ fi
 echo "应用配置更改..."
 make defconfig
 
+# ===== Rust编译配置 =====
+echo "配置Rust编译环境..."
+
+# 查找Rust源代码目录
+RUST_PKG_PATH=""
+if [ -d "feeds/packages/lang/rust" ]; then
+    RUST_PKG_PATH="feeds/packages/lang/rust"
+fi
+
+if [ -n "$RUST_PKG_PATH" ]; then
+    echo "找到Rust包: $RUST_PKG_PATH"
+    
+    # 设置环境变量以禁用CI LLVM下载
+    export RUSTFLAGS="-C target-feature=+crt-static"
+    
+    # 创建或修改bootstrap.toml以禁用CI LLVM
+    # 这会在构建时自动应用
+    RUST_BUILD_DIR=$(find build_dir -type d -name "rustc-*-src" 2>/dev/null | head -1)
+    
+    if [ -n "$RUST_BUILD_DIR" ] && [ -f "$RUST_BUILD_DIR/bootstrap.toml" ]; then
+        echo "发现Rust bootstrap.toml，配置CI LLVM下载..."
+        
+        # 备份原文件
+        cp "$RUST_BUILD_DIR/bootstrap.toml" "$RUST_BUILD_DIR/bootstrap.toml.bak"
+        
+        # 禁用CI LLVM下载
+        if grep -q "download-ci-llvm" "$RUST_BUILD_DIR/bootstrap.toml"; then
+            # 如果已存在该项，将其设置为false
+            sed -i 's/download-ci-llvm = true/download-ci-llvm = false/g' "$RUST_BUILD_DIR/bootstrap.toml"
+            echo "✓ 已禁用CI LLVM下载（修改现有配置）"
+        else
+            # 如果不存在，在[llvm]部分添加
+            if grep -q "^\[llvm\]" "$RUST_BUILD_DIR/bootstrap.toml"; then
+                sed -i '/^\[llvm\]/a download-ci-llvm = false' "$RUST_BUILD_DIR/bootstrap.toml"
+                echo "✓ 已禁用CI LLVM下载（添加到[llvm]部分）"
+            else
+                # 如果没有[llvm]部分，添加整个部分
+                echo "" >> "$RUST_BUILD_DIR/bootstrap.toml"
+                echo "[llvm]" >> "$RUST_BUILD_DIR/bootstrap.toml"
+                echo "download-ci-llvm = false" >> "$RUST_BUILD_DIR/bootstrap.toml"
+                echo "✓ 已禁用CI LLVM下载（创建[llvm]部分）"
+            fi
+        fi
+    else
+        echo "提示: Rust bootstrap.toml将在首次构建时生成"
+        # 设置环境变量作为备选方案
+        export BOOTSTRAP_ON_FAIL=1
+    fi
+    
+    # 为make传递环境变量
+    echo "export RUSTFLAGS=\"$RUSTFLAGS\"" >> /root/.bashrc 2>/dev/null || true
+    
+else
+    echo "注意: Rust包未在feeds/packages/lang/rust找到"
+fi
+
 # ===== 显示最终配置统计 =====
 echo "最终配置统计:"
 echo "总配置项: $(wc -l < .config)"
