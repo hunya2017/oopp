@@ -116,64 +116,25 @@ make defconfig
 # ===== Rust编译配置 =====
 echo "配置Rust编译环境..."
 
-# 查找Rust源代码目录
-RUST_PKG_PATH=""
-if [ -d "feeds/packages/lang/rust" ]; then
-    RUST_PKG_PATH="feeds/packages/lang/rust"
-fi
+# 设置环境变量以禁用CI LLVM下载
+export RUSTFLAGS="-C target-feature=+crt-static"
+export BOOTSTRAP_DOWNLOAD_CI_LLVM=false
+export BOOTSTRAP_ON_FAIL=1
 
-if [ -n "$RUST_PKG_PATH" ]; then
-    echo "找到Rust包: $RUST_PKG_PATH"
-    
-    # 设置环境变量以禁用CI LLVM下载
-    export RUSTFLAGS="-C target-feature=+crt-static"
-    export BOOTSTRAP_DOWNLOAD_CI_LLVM=false
-    export BOOTSTRAP_ON_FAIL=1
-    
-    # 直接在Rust Makefile中注入bootstrap配置
-    RUST_MAKEFILE="$RUST_PKG_PATH/Makefile"
-    if [ -f "$RUST_MAKEFILE" ]; then
-        echo "检查Rust Makefile..."
-        
-        # 备份原文件
-        [ ! -f "$RUST_MAKEFILE.bak" ] && cp "$RUST_MAKEFILE" "$RUST_MAKEFILE.bak"
-        
-        # 检查是否已经修改过
-        if ! grep -q "download-ci-llvm = false" "$RUST_MAKEFILE"; then
-            echo "注入bootstrap配置到Rust Makefile..."
-            
-            # 创建临时修改脚本
-            cat > /tmp/modify-rust-makefile.sh << 'SCRIPT_EOF'
-#!/bin/bash
-MAKEFILE="$1"
-# 在Build/Compile函数中查找CARGO_HOME行，在其前插入bootstrap配置
-sed -i '/^\s*CARGO_HOME=.*$/i\
-\techo "[llvm]" > "$(BUILD_DIR)/$(RUST_BUILD_DIR)/bootstrap.toml"\
-\techo "download-ci-llvm = false" >> "$(BUILD_DIR)/$(RUST_BUILD_DIR)/bootstrap.toml"\
-\techo '"'"'change-id = "ignore"'"'"'" >> "$(BUILD_DIR)/$(RUST_BUILD_DIR)/bootstrap.toml"\
-' "$MAKEFILE"
-SCRIPT_EOF
-            
-            chmod +x /tmp/modify-rust-makefile.sh
-            /tmp/modify-rust-makefile.sh "$RUST_MAKEFILE"
-            
-            echo "✓ bootstrap配置已注入到Rust Makefile"
-        else
-            echo "✓ bootstrap配置已存在于Rust Makefile"
-        fi
-    fi
-    
-    # 为make传递环境变量
-    echo "export RUSTFLAGS=\"$RUSTFLAGS\"" >> /root/.bashrc 2>/dev/null || true
-    echo "export BOOTSTRAP_DOWNLOAD_CI_LLVM=false" >> /root/.bashrc 2>/dev/null || true
-    echo "export BOOTSTRAP_ON_FAIL=1" >> /root/.bashrc 2>/dev/null || true
-    
-    # 也复制到当前shell的环境
-    source /root/.bashrc 2>/dev/null || true
-    
-else
-    echo "注意: Rust包未在feeds/packages/lang/rust找到"
-fi
+# 预创建bootstrap.toml文件供Rust使用
+# Rust构建时会查找此文件的配置
+mkdir -p build_dir/target-aarch64_generic_musl/host
+cat > build_dir/target-aarch64_generic_musl/host/bootstrap.toml << 'BOOTSTRAP_EOF'
+[llvm]
+download-ci-llvm = false
+change-id = "ignore"
+BOOTSTRAP_EOF
+
+echo "✓ Rust编译环境已配置"
+echo "  - RUSTFLAGS=$RUSTFLAGS"
+echo "  - BOOTSTRAP_DOWNLOAD_CI_LLVM=$BOOTSTRAP_DOWNLOAD_CI_LLVM"
+echo "  - BOOTSTRAP_ON_FAIL=$BOOTSTRAP_ON_FAIL"
+echo "  - bootstrap.toml已创建"
 
 # ===== 显示最终配置统计 =====
 echo "最终配置统计:"
