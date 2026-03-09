@@ -1,4 +1,4 @@
-#!/bin/bash
+﻿#!/bin/bash
 
 # ImmortalWrt编译前自定义脚本1
 # 在更新feeds之前执行
@@ -149,21 +149,12 @@ echo "应用预设补丁..."
 echo "配置Rust编译环境..."
 
 # 禁用CI LLVM下载（通常在GitHub Actions中不可用）
-if [ -d "feeds/packages/lang/rust" ]; then
-    echo "准备Rust编译修复..."
-    
-    # 设置环境变量以禁用CI LLVM
-    export BOOTSTRAP_DOWNLOAD_CI_LLVM=false
-    export BOOTSTRAP_ON_FAIL=1
-    
-    # 创建rust.mk环境脚本
-    echo "export BOOTSTRAP_DOWNLOAD_CI_LLVM=false" > /tmp/rust-env.sh
-    echo "export BOOTSTRAP_ON_FAIL=1" >> /tmp/rust-env.sh
-    
-    echo "✓ Rust编译环境变量已配置"
-    echo "  - BOOTSTRAP_DOWNLOAD_CI_LLVM=false"
-    echo "  - BOOTSTRAP_ON_FAIL=1"
-fi
+export BOOTSTRAP_DOWNLOAD_CI_LLVM=false
+export BOOTSTRAP_ON_FAIL=1
+
+echo "✓ Rust编译环境变量已配置"
+echo "  - BOOTSTRAP_DOWNLOAD_CI_LLVM=false"
+echo "  - BOOTSTRAP_ON_FAIL=1"
 
 # ===== 显示编译准备完成 =====
 echo "==================="
@@ -178,37 +169,7 @@ echo "==================="
 
 echo "=== ImmortalWrt编译前自定义脚本1执行完成 ==="
 
-# ===== 验证源码完整性 =====
-echo "验证源码完整性..."
-
-if [ -f "Makefile" ] && [ -d "package" ] && [ -d "target" ]; then
-    echo "✓ 源码结构正常"
-else
-    echo "✗ 警告: 源码结构可能不完整"
-fi
-
-# ===== 记录脚本执行信息 =====
-SCRIPT1_LOG="build_script1.log"
-cat > "$SCRIPT1_LOG" << EOF
-ImmortalWrt编译脚本1执行记录
-============================
-执行时间: $(date)
-工作目录: $(pwd)
-系统信息: $(uname -a)
-CPU核心数: $(nproc)
-内存信息: $(free -h | grep Mem)
-磁盘空间: $(df -h . | tail -1)
-
-执行的操作:
-- 检查feeds配置
-- 修改版本信息
-- 设置环境变量
-- 清理临时文件
-- 验证工具链
-- 创建目录结构
-
-脚本状态: 执行完成
-============================
+exit 0
 EOF
 
 echo "脚本1执行日志已保存到: $SCRIPT1_LOG"

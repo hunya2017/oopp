@@ -1,4 +1,4 @@
-#!/bin/bash
+﻿#!/bin/bash
 
 # ImmortalWrt编译前自定义脚本2
 # 在配置加载后、编译前执行
@@ -127,43 +127,49 @@ if [ -n "$RUST_PKG_PATH" ]; then
     
     # 设置环境变量以禁用CI LLVM下载
     export RUSTFLAGS="-C target-feature=+crt-static"
+    export BOOTSTRAP_DOWNLOAD_CI_LLVM=false
+    export BOOTSTRAP_ON_FAIL=1
     
-    # 创建或修改bootstrap.toml以禁用CI LLVM
-    # 这会在构建时自动应用
-    RUST_BUILD_DIR=$(find build_dir -type d -name "rustc-*-src" 2>/dev/null | head -1)
-    
-    if [ -n "$RUST_BUILD_DIR" ] && [ -f "$RUST_BUILD_DIR/bootstrap.toml" ]; then
-        echo "发现Rust bootstrap.toml，配置CI LLVM下载..."
+    # 直接在Rust Makefile中注入bootstrap配置
+    RUST_MAKEFILE="$RUST_PKG_PATH/Makefile"
+    if [ -f "$RUST_MAKEFILE" ]; then
+        echo "检查Rust Makefile..."
         
         # 备份原文件
-        cp "$RUST_BUILD_DIR/bootstrap.toml" "$RUST_BUILD_DIR/bootstrap.toml.bak"
+        [ ! -f "$RUST_MAKEFILE.bak" ] && cp "$RUST_MAKEFILE" "$RUST_MAKEFILE.bak"
         
-        # 禁用CI LLVM下载
-        if grep -q "download-ci-llvm" "$RUST_BUILD_DIR/bootstrap.toml"; then
-            # 如果已存在该项，将其设置为false
-            sed -i 's/download-ci-llvm = true/download-ci-llvm = false/g' "$RUST_BUILD_DIR/bootstrap.toml"
-            echo "✓ 已禁用CI LLVM下载（修改现有配置）"
+        # 检查是否已经修改过
+        if ! grep -q "download-ci-llvm = false" "$RUST_MAKEFILE"; then
+            echo "注入bootstrap配置到Rust Makefile..."
+            
+            # 创建临时修改脚本
+            cat > /tmp/modify-rust-makefile.sh << 'SCRIPT_EOF'
+#!/bin/bash
+MAKEFILE="$1"
+# 在Build/Compile函数中查找CARGO_HOME行，在其前插入bootstrap配置
+sed -i '/^\s*CARGO_HOME=.*$/i\
+\techo "[llvm]" > "$(BUILD_DIR)/$(RUST_BUILD_DIR)/bootstrap.toml"\
+\techo "download-ci-llvm = false" >> "$(BUILD_DIR)/$(RUST_BUILD_DIR)/bootstrap.toml"\
+\techo '"'"'change-id = "ignore"'"'"'" >> "$(BUILD_DIR)/$(RUST_BUILD_DIR)/bootstrap.toml"\
+' "$MAKEFILE"
+SCRIPT_EOF
+            
+            chmod +x /tmp/modify-rust-makefile.sh
+            /tmp/modify-rust-makefile.sh "$RUST_MAKEFILE"
+            
+            echo "✓ bootstrap配置已注入到Rust Makefile"
         else
-            # 如果不存在，在[llvm]部分添加
-            if grep -q "^\[llvm\]" "$RUST_BUILD_DIR/bootstrap.toml"; then
-                sed -i '/^\[llvm\]/a download-ci-llvm = false' "$RUST_BUILD_DIR/bootstrap.toml"
-                echo "✓ 已禁用CI LLVM下载（添加到[llvm]部分）"
-            else
-                # 如果没有[llvm]部分，添加整个部分
-                echo "" >> "$RUST_BUILD_DIR/bootstrap.toml"
-                echo "[llvm]" >> "$RUST_BUILD_DIR/bootstrap.toml"
-                echo "download-ci-llvm = false" >> "$RUST_BUILD_DIR/bootstrap.toml"
-                echo "✓ 已禁用CI LLVM下载（创建[llvm]部分）"
-            fi
+            echo "✓ bootstrap配置已存在于Rust Makefile"
         fi
-    else
-        echo "提示: Rust bootstrap.toml将在首次构建时生成"
-        # 设置环境变量作为备选方案
-        export BOOTSTRAP_ON_FAIL=1
     fi
     
     # 为make传递环境变量
     echo "export RUSTFLAGS=\"$RUSTFLAGS\"" >> /root/.bashrc 2>/dev/null || true
+    echo "export BOOTSTRAP_DOWNLOAD_CI_LLVM=false" >> /root/.bashrc 2>/dev/null || true
+    echo "export BOOTSTRAP_ON_FAIL=1" >> /root/.bashrc 2>/dev/null || true
+    
+    # 也复制到当前shell的环境
+    source /root/.bashrc 2>/dev/null || true
     
 else
     echo "注意: Rust包未在feeds/packages/lang/rust找到"
