@@ -58,7 +58,7 @@ env:
 
 jobs:
   build_openwrt:
-    name: immortalwrt-r3s
+    name: immortalwrt-r3s-25.12
     runs-on: Ubuntu-22.04
     permissions:
       contents: write # 用于创建release
