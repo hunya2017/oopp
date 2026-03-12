@@ -1,0 +1,181 @@
+# ImmortalWrt 25.12 编译配置 - 结构化参数
+
+## 源码配置
+repo_url: https://github.com/immortalwrt/immortalwrt
+repo_branch: openwrt-25.12
+repo_tag: ~ # 可选，为空表示使用分支版本
+
+## 编译环境
+build_platform: Ubuntu-22.04
+timezone: Asia/Shanghai
+feeds_conf: feeds.conf.default
+github_token: secrets.GIT_USER_TOKEN
+
+## 文件路径配置
+file_paths:
+  config_file: config/immortalwrt.info
+  diy_script_1: smpackage/immortalwrt-all-1.sh
+  diy_script_2: smpackage/immortalwrt-all-2.sh
+  settings_patch: smpackage/settings.patch
+
+## 固件命名
+firmware_name: immortalwrt-all-25.12
+device_name: ~ # 运行时从 .config 中提取
+
+## 上传和发布配置
+upload_config:
+  upload_bin_dir: true
+  upload_firmware: true
+  upload_buildinfo: true
+  upload_package: true
+  upload_release: true
+  artifacts_retention_days: 90
+
+## 编译参数
+compile_config:
+  parallel_jobs: nproc # 使用全部 CPU 核心
+  bootstrap_download_ci_llvm: "false" # 禁用 Rust CI LLVM 下载
+  bootstrap_on_fail: "1"
+
+## 触发条件
+triggers:
+  schedule:
+    enabled: true
+    cron: '0 18 * * 5' # 每周五北京时间凌晨2点（UTC+8）
+  watch:
+    enabled: true
+  repository_dispatch:
+    enabled: true
+  workflow_dispatch:
+    enabled: true
+    manual_inputs:
+    - ssh
+    - CACHE_BUILD
+    - UPLOAD_FIRMWARE
+    - UPLOAD_BUILDINFO
+    - UPLOAD_PACKAGE
+    - UPLOAD_RELEASE
+
+## 缓存加速
+cache_config:
+  enabled: true
+  type: ccache
+  mix_key: immortalwrt-all-25.12
+
+## 系统依赖（自动安装）
+system_dependencies:
+- ack
+- antlr3
+- asciidoc
+- autoconf
+- automake
+- autopoint
+- binutils
+- bison
+- build-essential
+- bzip2
+- ccache
+- cmake
+- cpio
+- curl
+- device-tree-compiler
+- fastjar
+- flex
+- gawk
+- gettext
+- gcc-multilib
+- g++-multilib
+- git
+- gperf
+- haveged
+- help2man
+- intltool
+- libc6-dev-i386
+- libelf-dev
+- libfuse-dev
+- libglib2.0-dev
+- libgmp3-dev
+- libltdl-dev
+- libmpc-dev
+- libmpfr-dev
+- libncurses5-dev
+- libncursesw5-dev
+- libpython3-dev
+- libreadline-dev
+- libssl-dev
+- libtool
+- lrzsz
+- mkisofs
+- msmtp
+- ninja-build
+- p7zip
+- p7zip-full
+- patch
+- pkgconf
+- python2.7
+- python3
+- python3-pyelftools
+- python3-setuptools
+- qemu-utils
+- rsync
+- scons
+- squashfs-tools
+- subversion
+- swig
+- texinfo
+- uglifyjs
+- upx-ucl
+- unzip
+- vim
+- wget
+- xmlto
+- xxd
+- zlib1g-dev
+- rename
+
+## 输出文件配置
+output_structure:
+  artifact_root: openwrt/artifact/
+  directories:
+    firmware: firmware/
+    package: package/
+    buildinfo: buildinfo/
+  file_naming:
+    pattern: "{DATE_SUFFIX}__{filename}{ext}"
+    date_format: "%Y%m%d_%H%M"
+
+## GitHub Actions 权限
+permissions:
+  contents: write # 创建 Release
+  packages: read # 读取包
+  id-token: write # 身份验证
+  actions: write # 管理工作流
+  deployments: write # 部署
+  issues: write # 创建 Issue
+  discussions: write # 创建讨论
+
+## 默认设置修改配置
+default_settings:
+  target_file: package/*/default-settings/files/99-default-settings
+  ip_address: 192.168.10.1
+  dhcp_start: 192.168.10.100
+  dhcp_end: 192.168.10.250
+  username: root
+  password: password
+  timezone: Asia/Shanghai
+  interface_language: Chinese
+
+## Release 发布配置
+release_config:
+  tag_format: "{YYYY}.{MM}.{DD}.{HH}.{MM}-immortalwrt-all-25.12"
+  include_release_notes: true
+  draft: false
+  prerelease: false
+  overwrite_existing: true
+
+## 版本控制
+version:
+  major: 25
+  minor: 12
+  config_version: "1.0"
+  last_update: "2024-03-12"
