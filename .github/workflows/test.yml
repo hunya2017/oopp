@@ -302,6 +302,10 @@ jobs:
 
     - name: 编译固件
       id: compile
+      env:
+        # 禁用Rust CI LLVM下载，避免404错误
+        BOOTSTRAP_DOWNLOAD_CI_LLVM: "false"
+        BOOTSTRAP_ON_FAIL: "1"
       run: |
         cd openwrt
         echo "CPU线程数: $(nproc)"
@@ -311,7 +315,8 @@ jobs:
         echo "=== 开始编译 ==="
         make defconfig
         echo -e "$(nproc) thread compile"
-        make -j$(nproc) || make -j1 V=s        echo "======================="
+        make -j$(nproc) || make -j1 V=s
+        echo "======================="
         echo "编译完成时间: $(date "+%Y-%m-%d %H:%M:%S")"
         echo "磁盘使用情况:"
         df -h

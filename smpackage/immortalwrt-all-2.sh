@@ -1,4 +1,4 @@
-#!/bin/bash
+﻿#!/bin/bash
 
 # ImmortalWrt编译前自定义脚本2
 # 在配置加载后、编译前执行
@@ -112,6 +112,29 @@ fi
 # ===== 应用配置更改 =====
 echo "应用配置更改..."
 make defconfig
+
+# ===== Rust编译配置 =====
+echo "配置Rust编译环境..."
+
+# 设置环境变量以禁用CI LLVM下载
+export RUSTFLAGS="-C target-feature=+crt-static"
+export BOOTSTRAP_DOWNLOAD_CI_LLVM=false
+export BOOTSTRAP_ON_FAIL=1
+
+# 预创建bootstrap.toml文件供Rust使用
+# Rust构建时会查找此文件的配置
+mkdir -p build_dir/target-aarch64_generic_musl/host
+cat > build_dir/target-aarch64_generic_musl/host/bootstrap.toml << 'BOOTSTRAP_EOF'
+[llvm]
+download-ci-llvm = false
+change-id = "ignore"
+BOOTSTRAP_EOF
+
+echo "✓ Rust编译环境已配置"
+echo "  - RUSTFLAGS=$RUSTFLAGS"
+echo "  - BOOTSTRAP_DOWNLOAD_CI_LLVM=$BOOTSTRAP_DOWNLOAD_CI_LLVM"
+echo "  - BOOTSTRAP_ON_FAIL=$BOOTSTRAP_ON_FAIL"
+echo "  - bootstrap.toml已创建"
 
 # ===== 显示最终配置统计 =====
 echo "最终配置统计:"

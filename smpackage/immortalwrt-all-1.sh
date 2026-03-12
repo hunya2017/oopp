@@ -1,4 +1,4 @@
-#!/bin/bash
+﻿#!/bin/bash
 
 # ImmortalWrt编译前自定义脚本1
 # 在更新feeds之前执行
@@ -55,7 +55,8 @@ echo "检查是否需要添加自定义软件包..."
 
 # 示例: 克隆额外的软件包
 # git clone https://github.com/kenzok8/openwrt-packages.git package/custom-packages
-# git clone https://github.com/xiaorouji/openwrt-passwall.git package/passwall
+git clone https://github.com/xiaorouji/openwrt-passwall2.git package/passwall2
+
 # 添加 iStore
 git clone https://github.com/linkease/istore package/istore
 
@@ -144,37 +145,31 @@ echo "应用预设补丁..."
 # 这里可以应用一些通用的补丁
 # 例如修复已知问题或添加功能
 
-# ===== 验证源码完整性 =====
-echo "验证源码完整性..."
+# ===== 修复Rust编译问题 =====
+echo "配置Rust编译环境..."
 
-if [ -f "Makefile" ] && [ -d "package" ] && [ -d "target" ]; then
-    echo "✓ 源码结构正常"
-else
-    echo "✗ 警告: 源码结构可能不完整"
-fi
+# 禁用CI LLVM下载（通常在GitHub Actions中不可用）
+export BOOTSTRAP_DOWNLOAD_CI_LLVM=false
+export BOOTSTRAP_ON_FAIL=1
 
-# ===== 记录脚本执行信息 =====
-SCRIPT1_LOG="build_script1.log"
-cat > "$SCRIPT1_LOG" << EOF
-ImmortalWrt编译脚本1执行记录
-============================
-执行时间: $(date)
-工作目录: $(pwd)
-系统信息: $(uname -a)
-CPU核心数: $(nproc)
-内存信息: $(free -h | grep Mem)
-磁盘空间: $(df -h . | tail -1)
+echo "✓ Rust编译环境变量已配置"
+echo "  - BOOTSTRAP_DOWNLOAD_CI_LLVM=false"
+echo "  - BOOTSTRAP_ON_FAIL=1"
 
-执行的操作:
-- 检查feeds配置
-- 修改版本信息
-- 设置环境变量
-- 清理临时文件
-- 验证工具链
-- 创建目录结构
+# ===== 显示编译准备完成 =====
+echo "==================="
+echo "源码准备完成！"
+echo "系统时间: $(date)"
+echo "当前工作目录: $(pwd)"
+echo "Git分支: $(git branch --show-current 2>/dev/null || echo '未知')"
+echo "Git提交: $(git rev-parse --short HEAD 2>/dev/null || echo '未知')"
+echo "可用CPU核心: $(nproc)"
+echo "可用磁盘: $(df -h . | tail -1)"
+echo "==================="
 
-脚本状态: 执行完成
-============================
+echo "=== ImmortalWrt编译前自定义脚本1执行完成 ==="
+
+exit 0
 EOF
 
 echo "脚本1执行日志已保存到: $SCRIPT1_LOG"
