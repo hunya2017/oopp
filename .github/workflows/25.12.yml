@@ -55,6 +55,7 @@ env:
   UPLOAD_RELEASE: true
   GITHUB_TOKEN: ${{ secrets.GIT_USER_TOKEN }}
   TZ: Asia/Shanghai
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build_openwrt:
@@ -108,7 +109,7 @@ jobs:
         echo "START_SECONDS=$(date --date="$START_TIME" +%s)" >> $GITHUB_ENV
 
     - name: 准备完成
-      uses: actions/checkout@v4
+      uses: actions/checkout@v4.2.2
 
     - name: 下载源代码
       working-directory: /workdir
@@ -604,7 +605,7 @@ jobs:
         fi
 
     - name: 上传固件到Actions空间
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v4.4.0
       if: steps.compile.outputs.status == 'success' && !cancelled()
       with:
         name: ${{ env.Firmware_Name }}-${{ env.FILE_DATE }}
@@ -618,7 +619,7 @@ jobs:
         include-hidden-files: false
 
     - name: 上传APK包到Actions空间
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v4.4.0
       if: steps.compile.outputs.status == 'success' && !cancelled() && hashFiles('openwrt/artifact/*__apk_packages.tar.gz') != ''
       with:
         name: ${{ env.Firmware_Name }}-packages-${{ env.FILE_DATE }}
@@ -654,7 +655,7 @@ jobs:
         rmdir unique_files
 
     - name: 自动发布到Releases
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v2.0.5
       if: steps.compile.outputs.status == 'success' && (github.event.inputs.UPLOAD_RELEASE == 'true' || github.event_name == 'schedule') && !cancelled()
       env:
         GITHUB_TOKEN: ${{ github.token }}
