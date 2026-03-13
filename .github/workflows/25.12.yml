@@ -416,7 +416,7 @@ jobs:
 
         # 复制所有软件包
         echo "复制软件包..."
-        find ./bin -name "*.ipk" -exec cp -f {} ./artifact/package/ \;
+        find ./bin -name "*.apk" -exec cp -f {} ./artifact/package/ \;
 
         # 复制所有构建信息
         echo "复制构建信息..."
@@ -483,7 +483,7 @@ jobs:
         echo "构建信息文件列表:"
         ls -lh ../../artifact/buildinfo/
         echo "软件包数量统计:"
-        find ../../artifact/package/ -name "*.ipk" | wc -l
+        find ../../artifact/package/ -name "*.apk" | wc -l
 
     - name: 生成发布标签
       id: tag
@@ -511,7 +511,7 @@ jobs:
 
         - firmware/: 固件文件目录
 
-        - ipk_packages.tar.gz: IPK软件包合集
+        - apk_packages.tar.gz: APK软件包合集
 
 
         📝 自定义功能：
@@ -548,60 +548,59 @@ jobs:
         echo "=== 文件统计 ==="
         echo "固件文件数量: $(find firmware/ -type f | wc -l)"
         echo "构建信息文件数量: $(find buildinfo/ -type f | wc -l)"
-        echo "软件包数量: $(find package/ -name "*.ipk" | wc -l)"
+        echo "软件包数量: $(find package/ -name "*.apk" | wc -l)"
 
         # 显示总大小
         echo "=== 空间占用 ==="
         du -sh firmware/ buildinfo/ package/
 
-    - name: 打包IPK文件
+    - name: 打包APK文件
       if: steps.compile.outputs.status == 'success' && !cancelled()
       run: |
         cd openwrt
-        echo "开始处理IPK文件..."
+        echo "开始处理APK文件..."
 
         # 清理并创建package目录
         rm -rf ./artifact/package
         mkdir -p ./artifact/package
 
-        # 收集所有IPK文件
-        echo "收集IPK文件..."
-        total_ipk=0
+        # 收集所有APK文件
+        echo "收集APK文件..."
+        total_apk=0
         if [ -d ./bin/packages ]; then
-          find ./bin/packages -name "*.ipk" -exec cp -f {} ./artifact/package/ \;
-          packages_count=$(find ./bin/packages -name "*.ipk" | wc -l)
-          total_ipk=$((total_ipk + packages_count))
-          echo "从 packages 目录收集到 $packages_count 个 IPK 文件"
+          find ./bin/packages -name "*.apk" -exec cp -f {} ./artifact/package/ \;
+          packages_count=$(find ./bin/packages -name "*.apk" | wc -l)
+          total_apk=$((total_apk + packages_count))
+          echo "从 packages 目录收集到 $packages_count 个 APK 文件"
         fi
 
         if [ -d ./bin/targets ]; then
-          find ./bin/targets -name "*.ipk" -exec cp -f {} ./artifact/package/ \;
-          targets_count=$(find ./bin/targets -name "*.ipk" | wc -l)
-          total_ipk=$((total_ipk + targets_count))
-          echo "从 targets 目录收集到 $targets_count 个 IPK 文件"
+          find ./bin/targets -name "*.apk" -exec cp -f {} ./artifact/package/ \;
+          targets_count=$(find ./bin/targets -name "*.apk" | wc -l)
+          total_apk=$((total_apk + targets_count))
+          echo "从 targets 目录收集到 $targets_count 个 APK 文件"
         fi
 
-        echo "总共收集到 $total_ipk 个 IPK 文件"
+        echo "总共收集到 $total_apk 个 APK 文件"
 
-        # 创建IPK压缩包
+        # 创建APK压缩包
         cd ./artifact/package
         if [ "$(ls -A)" ]; then
-          echo "正在创建IPK压缩包..."
-          tar -czf ../ipk_packages.tar.gz *
-          echo "✓ IPK打包完成"
+          echo "正在创建APK压缩包..."
+          tar -czf ../apk_packages.tar.gz *
+          echo "✓ APK打包完成"
           # 显示压缩包大小
-          ls -lh ../ipk_packages.tar.gz
-          # 重命名ipk压缩包
+          ls -lh ../apk_packages.tar.gz
+          # 重命名apk压缩包
           DATE_SUFFIX="$(date +"%Y%m%d_%H%M")"
-          mv -f "../ipk_packages.tar.gz" "../${DATE_SUFFIX}__ipk_packages.tar.gz"
-          echo "已重命名: ipk_packages.tar.gz -> ${DATE_SUFFIX}__ipk_packages.tar.gz"
-          # 删除原始IPK文件
-          echo "正在清理原始IPK文件..."
-          rm -rf ./*.ipk
-          echo "✓ 原始IPK文件已清理"
+          mv -f "../apk_packages.tar.gz" "../${DATE_SUFFIX}__apk_packages.tar.gz"
+          echo "已重命名: apk_packages.tar.gz -> ${DATE_SUFFIX}__apk_packages.tar.gz"
+          # 删除原始APK文件
+          echo "正在清理原始APK文件..."
+          rm -rf ./*.apk
+          echo "✓ 原始APK文件已清理"
         else
-          echo "⚠ 警告: 没有找到IPK文件"
-          touch ../ipk_packages.tar.gz
+          echo "⚠ 警告: 没有找到APK文件，跳过APK打包"
         fi
 
     - name: 上传固件到Actions空间
@@ -618,12 +617,12 @@ jobs:
         overwrite: false
         include-hidden-files: false
 
-    - name: 上传IPK包到Actions空间
+    - name: 上传APK包到Actions空间
       uses: actions/upload-artifact@v4
-      if: steps.compile.outputs.status == 'success' && !cancelled()
+      if: steps.compile.outputs.status == 'success' && !cancelled() && hashFiles('openwrt/artifact/*__apk_packages.tar.gz') != ''
       with:
         name: ${{ env.Firmware_Name }}-packages-${{ env.FILE_DATE }}
-        path: openwrt/artifact/*__ipk_packages.tar.gz
+        path: openwrt/artifact/*__apk_packages.tar.gz
         retention-days: 90
         compression-level: 9
 
@@ -664,7 +663,9 @@ jobs:
         tag_name: ${{ steps.tag.outputs.release_tag }}
         body_path: release.txt
         files: |
-          openwrt/artifact/*
+          openwrt/artifact/firmware/*
+          openwrt/artifact/buildinfo/*
+          openwrt/artifact/*__apk_packages.tar.gz
         draft: false
         prerelease: false
         generate_release_notes: true
