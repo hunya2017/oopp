@@ -43,7 +43,7 @@ env:
   REPO_URL: https://github.com/immortalwrt/immortalwrt
   REPO_BRANCH: openwrt-25.12
   FEEDS_CONF: feeds.conf.default
-  CONFIG_FILE: config/immortalwrt.info
+  CONFIG_FILE: config/25.12_immortalwrt.info
   Firmware_Name: immortalwrt-all-25.12
   DIY_P1_SH: smpackage/immortalwrt-all-1.sh
   DIY_P2_SH: smpackage/immortalwrt-all-2.sh
