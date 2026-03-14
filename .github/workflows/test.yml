@@ -42,9 +42,10 @@ on:
 env:
   REPO_URL: https://github.com/immortalwrt/immortalwrt
   REPO_BRANCH: openwrt-24.10
+  REPO_TAG: v24.10.5
   FEEDS_CONF: feeds.conf.default
   CONFIG_FILE: config/immortalwrt.info
-  Firmware_Name: immortalwrt-all
+  Firmware_Name: immortalwrt-all-24.10.5
   DIY_P1_SH: smpackage/immortalwrt-all-1.sh
   DIY_P2_SH: smpackage/immortalwrt-all-2.sh
   SETTINGS_PATCH: smpackage/settings.patch
