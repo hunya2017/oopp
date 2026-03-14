@@ -4,7 +4,9 @@ echo "开始应用自定义设置..."
 
 # 定义默认值
 root_password="password"
-lan_ip_address="192.168.10.1"
+lan_ip_address="192.168.8.1"
+lan_netmask="255.255.252.0"
+dhcp_limit="800"
 # wlan_name="ImmortalWrt"
 # wlan_password="12345678"
 
@@ -18,6 +20,18 @@ fi
 if [ -n "$lan_ip_address" ] && [ "$(uci -q get network.lan.ipaddr)" != "$lan_ip_address" ]; then
   echo "设置 LAN IP 为 $lan_ip_address"
   uci set network.lan.ipaddr="$lan_ip_address"
+fi
+
+# LAN netmask（如果已有配置就不动）
+if [ -n "$lan_netmask" ] && [ "$(uci -q get network.lan.netmask)" != "$lan_netmask" ]; then
+  echo "设置 LAN netmask 为 $lan_netmask"
+  uci set network.lan.netmask="$lan_netmask"
+fi
+
+# DHCP 租约上限（如果已有配置就不动）
+if [ -n "$dhcp_limit" ] && [ "$(uci -q get dhcp.lan.limit)" != "$dhcp_limit" ]; then
+  echo "设置 DHCP 最大租约数为 $dhcp_limit"
+  uci set dhcp.lan.limit="$dhcp_limit"
 fi
 
 # DHCP 租期（只在未配置时设置）
