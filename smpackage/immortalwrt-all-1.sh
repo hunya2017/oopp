@@ -21,7 +21,7 @@ if [ -f "feeds.conf.default" ]; then
     cp feeds.conf.default feeds.conf.default.bak
     
     # 可以在这里修改feeds源，例如添加自定义源
-    # echo 'src-git custom https://github.com/your-username/your-packages.git' >> feeds.conf.default
+    echo 'src-git passwall https://github.com/Openwrt-Passwall/openwrt-passwall.git' >> feeds.conf.default
     
     echo "修改后的feeds.conf.default内容:"
     cat feeds.conf.default
