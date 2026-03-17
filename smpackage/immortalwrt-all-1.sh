@@ -51,23 +51,55 @@ else
 fi
 
 # ===== 添加自定义软件包 =====
+
+# ===== 添加自定义软件包 =====
 echo "检查是否需要添加自定义软件包..."
 
-# 示例: 克隆额外的软件包
-# git clone https://github.com/kenzok8/openwrt-packages.git package/custom-packages
-git clone https://github.com/xiaorouji/openwrt-passwall2.git package/passwall2
+# ---------- 关键：清理旧版本（防冲突） ----------
+echo "清理旧的 passwall 相关包..."
+rm -rf feeds/*/passwall* 2>/dev/null || true
+rm -rf package/passwall* 2>/dev/null || true
 
-# 添加 iStore
-git clone https://github.com/linkease/istore package/istore
+# ---------- 拉取最新版 Passwall ----------
+echo "拉取最新版 Passwall..."
+git clone https://github.com/xiaorouji/openwrt-passwall.git package/passwall
 
-# 添加 nikki
-git clone https://github.com/nikkinikki-org/OpenWrt-nikki.git package/OpenWrt-nikki
+# ---------- 拉取依赖（必须） ----------
+echo "拉取 Passwall 依赖..."
+git clone https://github.com/xiaorouji/openwrt-passwall-packages.git package/passwall-packages
 
-# 添加 momo
-git clone https://github.com/nikkinikki-org/OpenWrt-momo.git package/OpenWrt-momo
+# ---------- （可选但强烈推荐）核心组件 ----------
+echo "拉取核心组件..."
+git clone https://github.com/SagerNet/sing-box.git package/sing-box 2>/dev/null || true
+git clone https://github.com/XTLS/Xray-core.git package/xray-core 2>/dev/null || true
 
-# 添加 AdGuardHome 插件
-git clone https://github.com/rufengsuixing/luci-app-adguardhome package/luci-app-adguardhome
+# ---------- 你原来的插件 ----------
+echo "拉取其他插件..."
+
+git clone https://github.com/linkease/istore package/istore 2>/dev/null || true
+
+git clone https://github.com/nikkinikki-org/OpenWrt-nikki.git package/OpenWrt-nikki 2>/dev/null || true
+
+git clone https://github.com/nikkinikki-org/OpenWrt-momo.git package/OpenWrt-momo 2>/dev/null || true
+
+git clone https://github.com/rufengsuixing/luci-app-adguardhome package/luci-app-adguardhome 2>/dev/null || true
+# echo "检查是否需要添加自定义软件包..."
+
+# # 示例: 克隆额外的软件包
+# # git clone https://github.com/kenzok8/openwrt-packages.git package/custom-packages
+# git clone https://github.com/xiaorouji/openwrt-passwall2.git package/passwall2
+
+# # 添加 iStore
+# git clone https://github.com/linkease/istore package/istore
+
+# # 添加 nikki
+# git clone https://github.com/nikkinikki-org/OpenWrt-nikki.git package/OpenWrt-nikki
+
+# # 添加 momo
+# git clone https://github.com/nikkinikki-org/OpenWrt-momo.git package/OpenWrt-momo
+
+# # 添加 AdGuardHome 插件
+# git clone https://github.com/rufengsuixing/luci-app-adguardhome package/luci-app-adguardhome
 
 # ===== 修改目标架构配置 =====
 echo "检查目标架构配置..."
