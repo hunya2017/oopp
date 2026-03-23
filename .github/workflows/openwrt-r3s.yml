@@ -254,11 +254,7 @@ jobs:
     - name: SSH连接到 Actions
       uses: tailscale/github-action@v1
       with:
-        oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
-        oauth-secret: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
-        tags: tag:ci
-        hostname: github-actions-${{ github.run_id }}
-        ephemeral: true
+        authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
         version: 1.58.0
     - name: 输出编译信息
       run: |
