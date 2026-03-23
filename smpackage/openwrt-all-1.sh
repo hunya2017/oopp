@@ -21,6 +21,22 @@ if [ -f "feeds.conf.default" ]; then
     cp feeds.conf.default feeds.conf.default.bak
     
     # 可以在这里添加自定义feeds 源
+    # 添加kenzok8/jell插件库
+    echo 'src-git kenzo https://github.com/kenzok8/openwrt-packages' >> feeds.conf.default
+    echo 'src-git small https://github.com/kenzok8/small' >> feeds.conf.default
+    echo '' >> feeds.conf.default
+    echo '# kenzok8/jell相关依赖' >> feeds.conf.default
+    echo 'src-git passwall_packages https://github.com/xiaorouji/openwrt-passwall-packages.git;packages' >> feeds.conf.default
+    echo 'src-git passwall https://github.com/xiaorouji/openwrt-passwall.git;main' >> feeds.conf.default
+    
+    echo ""
+    echo "✓ 已添加自定义feeds源:"
+    echo "  - kenzo (kenzok8/openwrt-packages)"
+    echo "  - small (kenzok8/small)"
+    echo "  - passwall_packages (xiaorouji/openwrt-passwall-packages)"
+    echo "  - passwall (xiaorouji/openwrt-passwall)"
+    echo ""
+    
     # echo 'src-git custom https://github.com/your-username/your-packages.git' >> feeds.conf.default
     
     echo "修改后的 feeds.conf.default 内容:"
@@ -51,7 +67,7 @@ if [ -f "package/base-files/files/etc/banner" ]; then
     =============================================================
     基于OpenWrt v24.10.0构建
     编译时间：$(TZ='Asia/Shanghai' date +"%Y-%m-%d %H:%M")
-    管理地址：http://192.168.10.1
+    管理地址：http://192.168.8.1
     用户名：root
     密码：password
     =============================================================
