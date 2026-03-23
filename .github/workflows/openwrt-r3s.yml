@@ -251,9 +251,13 @@ jobs:
         cd openwrt
         $GITHUB_WORKSPACE/$DIY_P2_SH
 
-    - name: SSH连接到Actions
+    - name: SSH连接到 Actions
       if: (github.event.inputs.ssh == 'true' && github.event.inputs.ssh != 'false') || contains(github.event.action, 'ssh')
-      uses: P3TERX/ssh2actions@v1.0.0
+      uses: tailscale/github-action@v1
+      with:
+        oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+        oauth-secret: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
+        tags: tag:ci
 
     - name: 输出编译信息
       run: |
