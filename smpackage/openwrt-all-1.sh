@@ -1,39 +1,36 @@
 #!/bin/bash
 
 # OpenWrt编译前自定义脚本1
-# 在更新feeds之前执行
+# 在更新feeds 之前执行
 
-echo "=== OpenWrt 编译前自定义脚本1 开始执行 ==="
+echo "=== OpenWrt编译前自定义脚本 1开始执行 ==="
 
 # 显示当前工作目录和基本信息
 echo "当前目录：$(pwd)"
 echo "系统信息：$(uname -a)"
 echo "编译开始时间：$(date)"
 
-# ===== 修改默认feeds源 =====
-echo "检查和修改feeds 配置..."
+# ===== 修改默认feeds 源 =====
+echo "检查和修改feeds配置..."
 
 if [ -f "feeds.conf.default" ]; then
-    echo "原始 feeds.conf.default 内容:"
+    echo "原始feeds.conf.default内容:"
     cat feeds.conf.default
     
     # 备份原始配置
     cp feeds.conf.default feeds.conf.default.bak
     
+    # 可以在这里添加自定义feeds 源
     # 添加kenzok8/jell插件库
-    echo "" >> feeds.conf.default
-    echo "# kenzok8/jell插件库" >> feeds.conf.default
+    # 添加kenzok8/jell插件库
+    echo "# kenzok8/jell 插件库" >> feeds.conf.default
     echo "src-git jell https://github.com/kenzok8/jell" >> feeds.conf.default
-    
-    echo ""
-    echo "✓ 已添加自定义feeds源:"
-    echo "  - jell (kenzok8/jell)"
-    echo ""
+    # echo 'src-git custom https://github.com/your-username/your-packages.git' >> feeds.conf.default
     
     echo "修改后的 feeds.conf.default 内容:"
     cat feeds.conf.default
 else
-    echo "警告：feeds.conf.default 文件不存在"
+    echo "警告：feeds.conf.default文件不存在"
 fi
 
 # ===== 修改版本信息 =====
@@ -41,17 +38,17 @@ echo "修改版本信息..."
 
 # OpenWrt原生版本使用banner文件
 if [ -f "package/base-files/files/etc/banner" ]; then
-    echo "找到 banner文件：package/base-files/files/etc/banner"
+    echo "找到banner 文件: package/base-files/files/etc/banner"
     
     # 备份原文件
     cp package/base-files/files/etc/banner package/base-files/files/etc/banner.bak
     
-    # 可以自定义banner 内容
+    # 可以自定义banner内容
     cat > package/base-files/files/etc/banner << 'EOF'
        ____                 _       __     __        ____      _       
       / __ \____  ___  ____| |     / /____/ /_      / __ )___ | | _____
      / / / / __ \/ _ \/ __ \ | /| / / ___/ __/_____/ __  / _ \| |/ / _ \
-    / /_/ / /_/ /  __/ / / / / |/ |/ / /  / /_/_____/ /_/ / (_) |   <  __/
+    / /_/ / /_/ /  __/ / / / |/ |/ / /  / /_/_____/ /_/ / (_) |   <  __/
     \____/ .___/\___/_/ /_/|__/|__/_/   \__/     /_____/\___/|_|\_\___/
         /_/                    C H I N A   E D I T I O N
     
