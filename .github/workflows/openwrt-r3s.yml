@@ -267,19 +267,21 @@ jobs:
         echo "检查自定义设置文件:"
         DEFAULT_SETTINGS_PATH=$(find package/ -name "*default*" -type d | head -1)
         if [ -n "$DEFAULT_SETTINGS_PATH" ] && [ -f "$DEFAULT_SETTINGS_PATH/files/99-default-settings" ]; then
-          echo "✓ 99-default-settings文件存在"
+          echo "✓ 99-default-settings 文件存在"
           if grep -q "ImmortalWrt-Custom" "$DEFAULT_SETTINGS_PATH/files/99-default-settings"; then
             echo "✓ 包含自定义设置"
           else
             echo "⚠ 未检测到自定义设置"
           fi
+        else
+          echo "ℹ 未找到99-default-settings 文件（正常）"
         fi
 
         echo "=========================================="
 
         # 显示已选插件列表
-        grep -i CONFIG_PACKAGE_luci-app .config | grep -v \# > Plug-in
-        grep -i CONFIG_PACKAGE_luci-theme .config | grep -v \# >> Plug-in
+        grep -i CONFIG_PACKAGE_luci-app .config | grep -v \# > Plug-in || true
+        grep -i CONFIG_PACKAGE_luci-theme .config | grep -v \# >> Plug-in || true
         sed -i '/INCLUDE/d' Plug-in > /dev/null 2>&1
         sed -i 's/CONFIG_PACKAGE_/、/g' Plug-in
         sed -i 's/=y/\ /g' Plug-in
@@ -287,8 +289,8 @@ jobs:
         awk '{print "	" $0}' Plug-2 > Plug-in
 
         echo "已选插件列表"
-        cat Plug-in
-        rm -rf {Plug-in,Plug-2}
+        cat Plug-in || echo "未生成插件列表"
+        rm -rf {Plug-in,Plug-2} || true
 
     - name: 下载固件包
       id: package
