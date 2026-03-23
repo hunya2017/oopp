@@ -257,8 +257,8 @@ jobs:
       with:
         oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
         oauth-secret: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
-        tags: tag:ci
-
+        tags: tag:ci        hostname: github-actions-${{ github.run_id }}
+        ephemeral: true
     - name: 输出编译信息
       run: |
         cd openwrt
