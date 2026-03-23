@@ -256,7 +256,7 @@ jobs:
       uses: mxschmitt/action-tmate@v3
       timeout-minutes: 40
       with:
-        limit-access-to-actor: true
+        limit-access-to-actor: false
     - name: 输出编译信息
       run: |
         cd openwrt
