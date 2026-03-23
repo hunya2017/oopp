@@ -254,7 +254,7 @@ jobs:
     - name: SSH调试会话
       if: (github.event.inputs.ssh == 'true' && github.event.inputs.ssh != 'false') || contains(github.event.action, 'ssh')
       uses: mxschmitt/action-tmate@v3
-      timeout-minutes: 30
+      timeout-minutes: 40
       with:
         limit-access-to-actor: true
     - name: 输出编译信息
