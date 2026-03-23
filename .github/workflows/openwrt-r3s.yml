@@ -251,11 +251,12 @@ jobs:
         cd openwrt
         $GITHUB_WORKSPACE/$DIY_P2_SH
 
-    - name: SSH连接到 Actions
-      uses: tailscale/github-action@v1
+    - name: SSH调试会话
+      if: (github.event.inputs.ssh == 'true' && github.event.inputs.ssh != 'false') || contains(github.event.action, 'ssh')
+      uses: mxschmitt/action-tmate@v3
+      timeout-minutes: 30
       with:
-        authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
-        version: 1.58.0
+        limit-access-to-actor: true
     - name: 输出编译信息
       run: |
         cd openwrt
