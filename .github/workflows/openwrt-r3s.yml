@@ -275,6 +275,577 @@ jobs:
                 break
               else
                 if [ $i -eq 3 ]; then
+                  echo "❌ 在 3次尝试后推送更改失败"
+                  exit 1
+                else
+                  echo "第$i次推送失败，5 秒后重试..."
+                  sleep 5
+                fi
+              fi
+            done
+          else
+            echo "ℹ️ .config 文件没有更改，无需提交"
+          fi
+        else
+          echo "⚠ .config文件不存在"
+          exit 1
+        fi
+
+    - name: 整理固件文件
+      id: artifact
+      if: steps.compile.outputs.status == 'success' && !cancelled()
+      run: |
+        cd openwrt
+        mkdir -p ./artifact/firmware ./artifact/package ./artifact/buildinfo
+
+        echo "=== 开始整理固件文件 ==="
+
+        [ -d ./bin/targets ] || { echo "警告：bin/targets目录不存在"; exit 1; }
+
+        echo "复制固件文件..."
+        find ./bin/targets/ -type f \( -name "*.bin" -o -name "*.gz" -o -name "*.img" -o -name "*.info" -o -name "*.buildinfo" -o -name "*.zst" -o -name "*.manifest" \) -not -path "*/packages/*" -exec cp -f -t ./artifact/firmware/ {} + || true
+
+        echo "复制软件包..."
+        find ./bin -name "*.ipk" -exec cp -f {} ./artifact/package/ \;
+
+        echo "复制构建信息..."
+        cp -f .config "./artifact/buildinfo/${{ env.Firmware_Name }}.config"
+        cp -f feeds.conf.default ./artifact/buildinfo/
+        find ./bin/targets/ -type f \( -name "*.buildinfo" -o -name "*.manifest" \) -exec cp -f {} ./artifact/buildinfo/ \;
+
+        echo "重命名文件添加日期前缀..."
+        DATE_SUFFIX="$(date +"%Y%m%d_%H%M")"
+
+        cd ./artifact/firmware/
+        for file in *; do
+          if [ -f "$file" ] && [[ "$file" != Packages* ]]; then
+            if [[ "$file" == *.tar.gz ]] || [[ "$file" == *.tar.zst ]]; then
+              fullname="${file%.*.*}"
+              ext=".tar.${file##*.*.}"
+              new_name="${DATE_SUFFIX}__${fullname}${ext}"
+            else
+              fullname="${file%.*}"
+              ext=".${file##*.}"
+              new_name="${DATE_SUFFIX}__${fullname}${ext}"
+            fi
+            
+            if [ "$file" != "$new_name" ]; then
+              mv -f "$file" "$new_name"
+              echo "已重命名：$file -> $new_name"
+            fi
+          fi
+        done
+
+        cd ../buildinfo/
+        for file in *; do
+          if [ -f "$file" ] && [[ "$file" != Packages* ]]; then
+            if [[ "$file" == *.conf.default ]]; then
+              base="${file%.conf.default}"
+              new_name="${DATE_SUFFIX}__${base}.conf.default"
+            else
+              base="${file%.*}"
+              ext=".${file##*.}"
+              new_name="${DATE_SUFFIX}__${base}${ext}"
+            fi
+            
+            if [ "$file" != "$new_name" ]; then
+              mv -f "$file" "$new_name"
+              echo "已重命名：$file -> $new_name"
+            fi
+          fi
+        done
+
+        echo "=== 固件文件整理完成 ==="
+
+        echo "固件文件列表:"
+        ls -lh ./
+        echo "构建信息文件列表:"
+        ls -lh ../../artifact/buildinfo/
+        echo "软件包数量统计:"
+        find ../../artifact/package/ -name "*.ipk" | wc -l
+
+    - name: 生成发布标签
+      id: tag
+      if: steps.compile.outputs.status == 'success' && (github.event.inputs.UPLOAD_RELEASE == 'true' || github.event_name == 'schedule') && !cancelled()
+      run: |
+        echo "release_tag=$(date +"%Y.%m.%d.%H.%M")-${{ env.Firmware_Name }}" >> $GITHUB_OUTPUT
+        echo "release_date=$(date +"%Y.%m.%d.%H.%M")" >> $GITHUB_OUTPUT
+        touch release.txt
+        cat > release.txt << EOF
+
+        ⏰ 编译时间：$(date "+%Y年%m月%d日-%H点%M分")
+
+        🎈 固件版本：OpenWrt Custom Build
+
+
+        🖥 管理地址：192.168.10.1
+
+
+        🌴 用户名：root
+
+
+        🛠 密码：password
+
+
+        📁 文件说明：
+
+        - firmware/: 固件文件目录
+
+        - ipk_packages.tar.gz: IPK软件包合集
+
+
+        📝 自定义功能：
+
+        - 中文界面
+
+        - 自定义IP地址(192.168.10.1)
+
+        - 优化时区设置
+
+        - 预设WiFi配置
+
+        - DHCP范围：192.168.10.100-250
+
+
+        EOF
+
+        echo "status=success" >> $GITHUB_OUTPUT
+
+    - name: 检查文件完整性
+      if: steps.compile.outputs.status == 'success' && !cancelled()
+      run: |
+        cd openwrt/artifact
+        echo "=== 检查文件完整性 ==="
+
+        echo "固件文件校验:"
+        find firmware/ -type f -exec md5sum {} \;
+
+        echo "构建信息校验:"
+        find buildinfo/ -type f -exec md5sum {} \;
+
+        echo "=== 文件统计 ==="
+        echo "固件文件数量：$(find firmware/ -type f | wc -l)"
+        echo "构建信息文件数量：$(find buildinfo/ -type f | wc -l)"
+        echo "软件包数量：$(find package/ -name '*.ipk' | wc -l)"
+
+        echo "=== 空间占用 ==="
+        du -sh firmware/ buildinfo/ package/
+
+    - name: 打包IPK 文件
+      if: steps.compile.outputs.status == 'success' && !cancelled()
+      run: |
+        cd openwrt
+        echo "开始处理IPK文件..."
+
+        rm -rf ./artifact/package
+        mkdir -p ./artifact/package
+
+        echo "收集IPK 文件..."
+        total_ipk=0
+        if [ -d ./bin/packages ]; then
+          find ./bin/packages -name "*.ipk" -exec cp -f {} ./artifact/package/ \;
+          packages_count=$(find ./bin/packages -name "*.ipk" | wc -l)
+          total_ipk=$((total_ipk + packages_count))
+          echo "从 packages目录收集到 $packages_count 个IPK 文件"
+        fi
+
+        if [ -d ./bin/targets ]; then
+          find ./bin/targets -name "*.ipk" -exec cp -f {} ./artifact/package/ \;
+          targets_count=$(find ./bin/targets -name "*.ipk" | wc -l)
+          total_ipk=$((total_ipk + targets_count))
+          echo "从targets 目录收集到 $targets_count个 IPK文件"
+        fi
+
+        echo "总共收集到 $total_ipk 个IPK 文件"
+
+        cd ./artifact/package
+        if [ "$(ls -A)" ]; then
+          echo "正在创建IPK 压缩包..."
+          tar -czf ../ipk_packages.tar.gz *
+          echo "✓ IPK 打包完成"
+          ls -lh ../ipk_packages.tar.gz
+          
+          DATE_SUFFIX="$(date +"%Y%m%d_%H%M")"
+          mv -f "../ipk_packages.tar.gz" "../${DATE_SUFFIX}__ipk_packages.tar.gz"
+          echo "已重命名：ipk_packages.tar.gz -> ${DATE_SUFFIX}__ipk_packages.tar.gz"
+          
+          rm -rf ./*.ipk
+          echo "✓ 原始IPK文件已清理"
+        else
+          echo "⚠ 警告：没有找到 IPK文件"
+          touch ../ipk_packages.tar.gz
+        fi
+
+    - name: 上传固件到Actions 空间
+      uses: actions/upload-artifact@v4
+      if: steps.compile.outputs.status == 'success' && !cancelled()
+      with:
+        name: ${{ env.Firmware_Name }}-${{ env.FILE_DATE }}
+        path: |
+          openwrt/artifact/firmware/*
+          openwrt/artifact/buildinfo/*
+        retention-days: 90
+        compression-level: 9
+        if-no-files-found: warn
+        overwrite: false
+        include-hidden-files: false
+
+    - name: 上传IPK包到 Actions 空间
+      uses: actions/upload-artifact@v4
+      if: steps.compile.outputs.status == 'success' && !cancelled()
+      with:
+        name: ${{ env.Firmware_Name }}-packages-${{ env.FILE_DATE }}
+        path: openwrt/artifact/*__ipk_packages.tar.gz
+        retention-days: 90
+        compression-level: 9
+
+    - name: 处理重复文件
+      if: steps.compile.outputs.status == 'success' && (github.event.inputs.UPLOAD_RELEASE == 'true' || github.event_name == 'schedule') && !cancelled()
+      run: |
+        cd openwrt/artifact
+        mkdir -p unique_files
+
+        for file in firmware/* buildinfo/* *.tar.gz; do
+          if [ -f "$file" ]; then
+            base_name=$(basename "$file")
+            if [ -f "unique_files/$base_name" ]; then
+              if [ "$file" -nt "unique_files/$base_name" ]; then
+                mv -f "$file" "unique_files/$base_name"
+              fi
+            else
+              mv "$file" "unique_files/$base_name"
+            fi
+          fi
+        done
+
+        rm -rf firmware buildinfo *.tar.gz
+        mv unique_files/* ./
+        rmdir unique_files
+
+    - name: 自动发布到Releases
+      uses: softprops/action-gh-release@v2
+      if: steps.compile.outputs.status == 'success' && (github.event.inputs.UPLOAD_RELEASE == 'true' || github.event_name == 'schedule') && !cancelled()
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      with:
+        name: ${{ steps.tag.outputs.release_date }} ${{ env.Firmware_Name }}
+        tag_name: ${{ steps.tag.outputs.release_tag }}
+        body_path: release.txt
+        files: |
+          openwrt/artifact/*
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+        fail_on_unmatched_files: false
+        overwrite_files: true
+
+    - name: 提交.config文件到源码库
+      if: steps.compile.outputs.status == 'success' && !cancelled()
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        cd openwrt
+        if [ -f .config ]; then
+          mkdir -p $(dirname $GITHUB_WORKSPACE/$CONFIG_FILE)
+          cp -f .config $GITHUB_WORKSPACE/$CONFIG_FILE
+          cd $GITHUB_WORKSPACE
+          
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          if ! git diff --quiet -- $CONFIG_FILE; then
+            echo "检测到.config文件有更改，准备提交..."
+            
+            git add $CONFIG_FILE
+            git commit -m "bot: 更新编译配置 $(date '+%Y-%m-%d %H:%M:%S')"
+            git pull origin ${{ github.ref }}
+            
+            for i in {1..3}; do
+              if git push origin ${{ github.ref }}; then
+                echo "✓ 配置文件已更新并提交(尝试 $i/3)"
+                break
+              else
+                if [ $i -eq 3 ]; then
+                  echo "❌ 在 3次尝试后推送更改失败"
+                  exit 1
+                else
+                  echo "第$i次推送失败，5 秒后重试..."
+                  sleep 5
+                fi
+              fi
+            done
+          else
+            echo "ℹ️ .config 文件没有更改，无需提交"
+          fi
+        else
+          echo "⚠ .config 文件不存在"
+          exit 1
+        fi
+
+    - name: 整理固件文件
+      id: artifact
+      if: steps.compile.outputs.status == 'success' && !cancelled()
+      run: |
+        cd openwrt
+        mkdir -p ./artifact/firmware ./artifact/package ./artifact/buildinfo
+
+        echo "=== 开始整理固件文件 ==="
+
+        [ -d ./bin/targets ] || { echo "警告：bin/targets 目录不存在"; exit 1; }
+
+        echo "复制固件文件..."
+        find ./bin/targets/ -type f \( -name "*.bin" -o -name "*.gz" -o -name "*.img" -o -name "*.info" -o -name "*.buildinfo" -o -name "*.zst" -o -name "*.manifest" \) -not -path "*/packages/*" -exec cp -f -t ./artifact/firmware/ {} + || true
+
+        echo "复制软件包..."
+        find ./bin -name "*.ipk" -exec cp -f {} ./artifact/package/ \;
+
+        echo "复制构建信息..."
+        cp -f .config "./artifact/buildinfo/${{ env.Firmware_Name }}.config"
+        cp -f feeds.conf.default ./artifact/buildinfo/
+        find ./bin/targets/ -type f \( -name "*.buildinfo" -o -name "*.manifest" \) -exec cp -f {} ./artifact/buildinfo/ \;
+
+        echo "重命名文件添加日期前缀..."
+        DATE_SUFFIX="$(date +"%Y%m%d_%H%M")"
+
+        cd ./artifact/firmware/
+        for file in *; do
+          if [ -f "$file" ] && [[ "$file" != Packages* ]]; then
+            if [[ "$file" == *.tar.gz ]] || [[ "$file" == *.tar.zst ]]; then
+              fullname="${file%.*.*}"
+              ext=".tar.${file##*.*.}"
+              new_name="${DATE_SUFFIX}__${fullname}${ext}"
+            else
+              fullname="${file%.*}"
+              ext=".${file##*.}"
+              new_name="${DATE_SUFFIX}__${fullname}${ext}"
+            fi
+            
+            if [ "$file" != "$new_name" ]; then
+              mv -f "$file" "$new_name"
+              echo "已重命名：$file -> $new_name"
+            fi
+          fi
+        done
+
+        cd ../buildinfo/
+        for file in *; do
+          if [ -f "$file" ] && [[ "$file" != Packages* ]]; then
+            if [[ "$file" == *.conf.default ]]; then
+              base="${file%.conf.default}"
+              new_name="${DATE_SUFFIX}__${base}.conf.default"
+            else
+              base="${file%.*}"
+              ext=".${file##*.}"
+              new_name="${DATE_SUFFIX}__${base}${ext}"
+            fi
+            
+            if [ "$file" != "$new_name" ]; then
+              mv -f "$file" "$new_name"
+              echo "已重命名：$file -> $new_name"
+            fi
+          fi
+        done
+
+        echo "=== 固件文件整理完成 ==="
+
+        echo "固件文件列表:"
+        ls -lh ./
+        echo "构建信息文件列表:"
+        ls -lh ../../artifact/buildinfo/
+        echo "软件包数量统计:"
+        find ../../artifact/package/ -name "*.ipk" | wc -l
+
+    - name: 生成发布标签
+      id: tag
+      if: steps.compile.outputs.status == 'success' && (github.event.inputs.UPLOAD_RELEASE == 'true' || github.event_name == 'schedule') && !cancelled()
+      run: |
+        echo "release_tag=$(date +"%Y.%m.%d.%H.%M")-${{ env.Firmware_Name }}" >> $GITHUB_OUTPUT
+        echo "release_date=$(date +"%Y.%m.%d.%H.%M")" >> $GITHUB_OUTPUT
+        touch release.txt
+        echo "
+        ⏰ 编译时间：$(date "+%Y年%m月%d日-%H点%M分")
+
+        🎈 固件版本：OpenWrt Custom Build
+
+        🖥 管理地址：192.168.10.1
+
+        🌴 用户名：root
+
+        🛠 密码：password
+
+        📁 文件说明：
+
+        - firmware/: 固件文件目录
+
+        - ipk_packages.tar.gz: IPK软件包合集
+
+        📝 自定义功能：
+
+        - 中文界面
+
+        - 自定义IP地址 (192.168.10.1)
+
+        - 优化时区设置
+
+        - 预设WiFi 配置
+
+        - DHCP范围：192.168.10.100-250
+
+        " >> release.txt
+
+        echo "status=success" >> $GITHUB_OUTPUT
+
+    - name: 检查文件完整性
+      if: steps.compile.outputs.status == 'success' && !cancelled()
+      run: |
+        cd openwrt/artifact
+        echo "=== 检查文件完整性 ==="
+
+        echo "固件文件校验:"
+        find firmware/ -type f -exec md5sum {} \;
+
+        echo "构建信息校验:"
+        find buildinfo/ -type f -exec md5sum {} \;
+
+        echo "=== 文件统计 ==="
+        echo "固件文件数量：$(find firmware/ -type f | wc -l)"
+        echo "构建信息文件数量：$(find buildinfo/ -type f | wc -l)"
+        echo "软件包数量：$(find package/ -name '*.ipk' | wc -l)"
+
+        echo "=== 空间占用 ==="
+        du -sh firmware/ buildinfo/ package/
+
+    - name: 打包IPK 文件
+      if: steps.compile.outputs.status == 'success' && !cancelled()
+      run: |
+        cd openwrt
+        echo "开始处理IPK文件..."
+
+        rm -rf ./artifact/package
+        mkdir -p ./artifact/package
+
+        echo "收集IPK 文件..."
+        total_ipk=0
+        if [ -d ./bin/packages ]; then
+          find ./bin/packages -name "*.ipk" -exec cp -f {} ./artifact/package/ \;
+          packages_count=$(find ./bin/packages -name "*.ipk" | wc -l)
+          total_ipk=$((total_ipk + packages_count))
+          echo "从packages 目录收集到 $packages_count 个IPK 文件"
+        fi
+
+        if [ -d ./bin/targets ]; then
+          find ./bin/targets -name "*.ipk" -exec cp -f {} ./artifact/package/ \;
+          targets_count=$(find ./bin/targets -name "*.ipk" | wc -l)
+          total_ipk=$((total_ipk + targets_count))
+          echo "从targets目录收集到 $targets_count个IPK文件"
+        fi
+
+        echo "总共收集到 $total_ipk个 IPK文件"
+
+        cd ./artifact/package
+        if [ "$(ls -A)" ]; then
+          echo "正在创建 IPK压缩包..."
+          tar -czf ../ipk_packages.tar.gz *
+          echo "✓ IPK 打包完成"
+          ls -lh ../ipk_packages.tar.gz
+          DATE_SUFFIX="$(date +"%Y%m%d_%H%M")"
+          mv -f "../ipk_packages.tar.gz" "../${DATE_SUFFIX}__ipk_packages.tar.gz"
+          echo "已重命名：ipk_packages.tar.gz -> ${DATE_SUFFIX}__ipk_packages.tar.gz"
+          rm -rf ./*.ipk
+          echo "✓ 原始IPK 文件已清理"
+        else
+          echo "⚠ 警告：没有找到 IPK文件"
+          touch ../ipk_packages.tar.gz
+        fi
+
+    - name: 上传固件到Actions 空间
+      uses: actions/upload-artifact@v4
+      if: steps.compile.outputs.status == 'success' && !cancelled()
+      with:
+        name: ${{ env.Firmware_Name }}-${{ env.FILE_DATE }}
+        path: |
+          openwrt/artifact/firmware/*
+          openwrt/artifact/buildinfo/*
+        retention-days: 90
+        compression-level: 9
+        if-no-files-found: warn
+        overwrite: false
+        include-hidden-files: false
+
+    - name: 上传IPK包到 Actions空间
+      uses: actions/upload-artifact@v4
+      if: steps.compile.outputs.status == 'success' && !cancelled()
+      with:
+        name: ${{ env.Firmware_Name }}-packages-${{ env.FILE_DATE }}
+        path: openwrt/artifact/*__ipk_packages.tar.gz
+        retention-days: 90
+        compression-level: 9
+
+    - name: 处理重复文件
+      if: steps.compile.outputs.status == 'success' && (github.event.inputs.UPLOAD_RELEASE == 'true' || github.event_name == 'schedule') && !cancelled()
+      run: |
+        cd openwrt/artifact
+        mkdir -p unique_files
+        for file in firmware/* buildinfo/* *.tar.gz; do
+          if [ -f "$file" ]; then
+            base_name=$(basename "$file")
+            if [ -f "unique_files/$base_name" ]; then
+              if [ "$file" -nt "unique_files/$base_name" ]; then
+                mv -f "$file" "unique_files/$base_name"
+              fi
+            else
+              mv "$file" "unique_files/$base_name"
+            fi
+          fi
+        done
+        rm -rf firmware buildinfo *.tar.gz
+        mv unique_files/* ./
+        rmdir unique_files
+
+    - name: 自动发布到 Releases
+      uses: softprops/action-gh-release@v2
+      if: steps.compile.outputs.status == 'success' && (github.event.inputs.UPLOAD_RELEASE == 'true' || github.event_name == 'schedule') && !cancelled()
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      with:
+        name: ${{ steps.tag.outputs.release_date }} ${{ env.Firmware_Name }}
+        tag_name: ${{ steps.tag.outputs.release_tag }}
+        body_path: release.txt
+        files: |
+          openwrt/artifact/*
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+        fail_on_unmatched_files: false
+        overwrite: true
+
+    - name: 提交.config 文件到源码库
+      if: steps.compile.outputs.status == 'success' && !cancelled()
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        cd openwrt
+        if [ -f .config ]; then
+          mkdir -p $(dirname $GITHUB_WORKSPACE/$CONFIG_FILE)
+          cp -f .config $GITHUB_WORKSPACE/$CONFIG_FILE
+          cd $GITHUB_WORKSPACE
+          
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          if ! git diff --quiet -- $CONFIG_FILE; then
+            echo "检测到.config文件有更改，准备提交..."
+            
+            git add $CONFIG_FILE
+            git commit -m "bot: 更新编译配置 $(date '+%Y-%m-%d %H:%M:%S')"
+            git pull origin ${{ github.ref }}
+            
+            for i in {1..3}; do
+              if git push origin ${{ github.ref }}; then
+                echo "✓ 配置文件已更新并提交 (尝试 $i/3)"
+                break
+              else
+                if [ $i -eq 3 ]; then
                   echo "❌ 在3 次尝试后推送更改失败"
                   exit 1
                 else
