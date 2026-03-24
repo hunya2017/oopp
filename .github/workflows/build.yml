@@ -1,4 +1,4 @@
-on:
+﻿on:
   watch:
     types: started
 jobs:
@@ -6,13 +6,13 @@ jobs:
     runs-on: ubuntu-22.04
     if: github.event.repository.owner.id == github.event.sender.id
     steps:
-    - name: Get release tag
+    - name: 获取发布标签
       id: release_tag
       run: |
         release_tag="FriendlyWrt-$(date +%Y-%m-%d)"
         echo "##[set-output name=release_tag;]$release_tag"
 
-    - name: Create empty release
+    - name: 创建空发布
       id: release
       uses: softprops/action-gh-release@v1
       env:
@@ -31,14 +31,14 @@ jobs:
     if: github.event.repository.owner.id == github.event.sender.id
     strategy:
       matrix:
-        VERSION: ['23.05', '24.10']
-        SET: [docker, non-docker]
+        VERSION: [ '23.05', '24.10' ]
+        SET: [ docker, non-docker ]
 
     steps:
-    - name: Checkout
+    - name: 检出代码
       uses: actions/checkout@main
 
-    - name: Initialization environment
+    - name: 初始化环境
       env:
         DEBIAN_FRONTEND: noninteractive
       run: |
@@ -58,7 +58,7 @@ jobs:
         sudo rm -rf /usr/share/dotnet /usr/local/lib/android/sdk /usr/local/share/boost /opt/ghc
         echo "cores: $(nproc)"
 
-    - name: Download source
+    - name: 下载源码
       run: |
         mkdir project
         cd project
@@ -73,13 +73,13 @@ jobs:
         repo sync -c scripts/sd-fuse  --no-clone-bundle
         repo sync -c toolchain  --no-clone-bundle
 
-    - name: Apply customizations
+    - name: 应用自定义配置
       run: |
         cd project
         source ../scripts/add_packages.sh
         source ../scripts/custome_config.sh
 
-    - name: Prepare dot config and feeds
+    - name: 准备dot config 和feeds
       run: |
         cd project
         [ "${{ matrix.SET }}" == "docker" ] && SUFFIX="-docker"
@@ -92,14 +92,14 @@ jobs:
         EOL
         DEBUG_DOT_CONFIG=1 ./build.sh friendlywrt
 
-    - name: Download package
+    - name: 下载软件包
       run: |
         cd project/friendlywrt
         make download -j8
         find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
 
-    - name: Compile friendlyWrt
+    - name: 编译FriendlyWrt
       id: compile
       continue-on-error: true
       run: |
@@ -107,13 +107,13 @@ jobs:
         make -j$(nproc) || make -j1 V=s
         echo $?
 
-    - name: Check the result and try again
+    - name: 检查结果并重试
       if: steps.compile.outcome == 'failure'
       run: |
         cd project/friendlywrt
         make -j1 V=s
 
-    - name: Create rootfs package
+    - name: 创建rootfs包
       id: create_rootfs_package
       run: |
         cd project
@@ -124,7 +124,7 @@ jobs:
               ${FRIENDLYWRT_SRC}/${FRIENDLYWRT_PACKAGE_DIR}
         echo "##[set-output name=rootfs_filename;]$rootfs_filename"
 
-    - name: Upload rootfs package
+    - name: 上传 rootfs包
       uses: svenstaro/upload-release-action@v2
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
@@ -134,20 +134,20 @@ jobs:
         overwrite: true
 
   build_img:
-    needs: [prepare_release,build_friendlywrt]
+    needs: [ prepare_release, build_friendlywrt ]
     runs-on: ubuntu-22.04
     if: github.event.repository.owner.id == github.event.sender.id
 
     strategy:
       matrix:
-        VERSION: ['23.05', '24.10']
-        CPU: [rk3328, rk3528, rk3399, rk3566, rk3568, rk3576, rk3588]
-        SET: [docker, non-docker]
+        VERSION: [ '23.05', '24.10' ]
+        CPU: [ rk3328, rk3528, rk3399, rk3566, rk3568, rk3576, rk3588 ]
+        SET: [ docker, non-docker ]
     steps:
-    - name: Checkout
+    - name: 检出代码
       uses: actions/checkout@main
 
-    - name: Initialization environment
+    - name: 初始化环境
       env:
         DEBIAN_FRONTEND: noninteractive
       run: |
@@ -167,7 +167,7 @@ jobs:
         sudo rm -rf /usr/share/dotnet /usr/local/lib/android/sdk /usr/local/share/boost /opt/ghc
         echo "cores: $(nproc)"
 
-    - name: Download source
+    - name: 下载源码
       run: |
         mkdir project
         cd project
@@ -184,7 +184,7 @@ jobs:
         repo sync -c scripts/sd-fuse  --no-clone-bundle
         repo sync -c toolchain  --no-clone-bundle
 
-    - name: Download friendlywrt rootfs (non-docker)
+    - name: 下载FriendlyWrt rootfs（非Docker）
       if: matrix.SET == 'non-docker'
       uses: robinraju/release-downloader@v1.6
       env:
@@ -194,7 +194,7 @@ jobs:
         tag: ${{ needs.prepare_release.outputs.release_tag }}
         fileName: "rootfs-friendlywrt-${{ matrix.VERSION }}.tgz"
 
-    - name: Download friendlywrt rootfs (docker)
+    - name: 下载FriendlyWrt rootfs（Docker）
       if: matrix.SET == 'docker'
       uses: robinraju/release-downloader@v1.6
       env:
@@ -204,7 +204,7 @@ jobs:
         tag: ${{ needs.prepare_release.outputs.release_tag }}
         fileName: "rootfs-friendlywrt-${{ matrix.VERSION }}-docker.tgz"
 
-    - name: Prepare config
+    - name: 准备配置
       id: config
       run: |
         cd project
@@ -247,13 +247,13 @@ jobs:
         EOL
         echo "##[set-output name=img_filename;]$FILENAME"
 
-    - name: Unpack friendlywrt rootfs
+    - name: 解压FriendlyWrt rootfs
       run: |
         cd project
         [ "${{ matrix.SET }}" == "docker" ] && SUFFIX="-docker"
         tar xvzf "../rootfs-friendlywrt-${{ matrix.VERSION }}${SUFFIX}.tgz"
 
-    - name: Compile uboot and kernel
+    - name: 编译U-Boot 和内核
       run: |
         cd project
         ## If you need to modify the kernel configuration, please edit the script below
@@ -269,7 +269,7 @@ jobs:
         #     ;;
         # esac
 
-    - name: Build sd image
+    - name: 构建 SD镜像
       id: build_sd_image
       run: |
         cd project
@@ -278,7 +278,7 @@ jobs:
         cd ../artifact/
         gzip *.img
 
-    - name: Upload image to release
+    - name: 上传镜像到发布
       uses: svenstaro/upload-release-action@v2
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
@@ -286,4 +286,3 @@ jobs:
         asset_name: ${{ steps.config.outputs.img_filename }}.gz
         tag: ${{ needs.prepare_release.outputs.release_tag }}
         overwrite: true
-
