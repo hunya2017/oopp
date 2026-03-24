@@ -1,4 +1,4 @@
-name: openwrt-r3s
+﻿name: openwrt-r3s
 
 on:
   schedule:
@@ -148,103 +148,31 @@ jobs:
 
         echo "=== 开始修改默认设置文件 ==="
 
-        # 查找default-settings目录
-        DEFAULT_SETTINGS_PATH=""
-        if [ -d "package/emortal/default-settings" ]; then
-          DEFAULT_SETTINGS_PATH="package/emortal/default-settings"
-        elif [ -d "package/lean/default-settings" ]; then
-          DEFAULT_SETTINGS_PATH="package/lean/default-settings"
-        else
-          echo "查找所有可能的default-settings目录:"
-          find package/ -name "*default*" -type d
-          DEFAULT_SETTINGS_PATH=$(find package/ -name "*default*" -type d | head -1)
-        fi
+        # 使用正确的uci-defaults目录路径
+        UCI_DEFAULTS_PATH="package/base-files/files/etc/uci-defaults"
 
-        if [ -z "$DEFAULT_SETTINGS_PATH" ]; then
-          echo "错误: 未找到default-settings目录"
+        # 检查uci-defaults目录是否存在
+        if [ ! -d "$UCI_DEFAULTS_PATH" ]; then
+          echo "错误：未找到uci-defaults目录：$UCI_DEFAULTS_PATH"
           exit 1
         fi
 
-        echo "使用目录: $DEFAULT_SETTINGS_PATH"
-        cd $DEFAULT_SETTINGS_PATH
-
-        # 检查是否存在99-default-settings文件
-        if [ -f "files/99-default-settings" ]; then
-          echo "✓ 找到99-default-settings文件"
-          
-          # 备份原文件
-          cp files/99-default-settings files/99-default-settings.bak
-          echo "✓ 已备份原文件"
-          
-          # 方法1: 使用patch方式修改（如果存在patch文件）
-          if [ -e "$GITHUB_WORKSPACE/$SETTINGS_PATCH" ]; then
-            echo "尝试使用patch方式修改..."
-            cp "$GITHUB_WORKSPACE/$SETTINGS_PATCH" ./settings.patch
-            
-            if patch --dry-run -p1 < settings.patch >/dev/null 2>&1; then
-              patch -p1 < settings.patch
-              echo "✓ patch方式修改成功"
-            else
-              echo "⚠ patch方式失败，使用sed方式修改"
-              # 恢复备份文件
-              cp files/99-default-settings.bak files/99-default-settings
-            fi
-          fi
-          
-          # 方法2: 使用sed直接在exit 0之前插入内容
-          if ! grep -q "ImmortalWrt-Custom" files/99-default-settings; then
-            echo "使用sed方式添加自定义设置..."
-            
-            # 创建临时的自定义设置内容
-            if [ -f "$GITHUB_WORKSPACE/$SETTINGS_PATCH" ]; then
-              echo "使用 $SETTINGS_PATCH 文件进行修改"
-              cat "$GITHUB_WORKSPACE/$SETTINGS_PATCH" > /tmp/custom_settings
-            else
-              echo "$SETTINGS_PATCH 不存在，配置失败"
-              exit 1
-            fi
-            
-            # 在exit 0之前插入自定义内容
-            if grep -q "exit 0" files/99-default-settings; then
-              # 找到exit 0的行号，在其前面插入内容
-              sed -i '/exit 0/i\
-              # === 插入自定义设置 ===' files/99-default-settings
-              
-              # 在标记行后插入实际内容
-              sed -i '/# === 插入自定义设置 ===/r /tmp/custom_settings' files/99-default-settings
-              
-              # 删除标记行
-              sed -i '/# === 插入自定义设置 ===/d' files/99-default-settings
-              
-              echo "✓ 使用sed方式修改成功"
-            else
-              # 如果没有exit 0，直接在文件末尾添加
-              cat /tmp/custom_settings >> files/99-default-settings
-              echo "exit 0" >> files/99-default-settings
-              echo "✓ 在文件末尾添加自定义设置"
-            fi
-            
-            # 清理临时文件
-            rm -f /tmp/custom_settings
-          else
-            echo "ℹ 文件已包含自定义设置，跳过修改"
-          fi
-          
-          # 确保文件有执行权限
-          chmod +x files/99-default-settings
-          
+        # 直接将settings.patch复制到uci-defaults目录并重命名为99-default-settings
+        if [ -e "$GITHUB_WORKSPACE/$SETTINGS_PATCH" ]; then
+          echo "复制settings.patch到uci-defaults目录..."
+          cp "$GITHUB_WORKSPACE/$SETTINGS_PATCH" "$UCI_DEFAULTS_PATH/99-default-settings"
+          chmod +x "$UCI_DEFAULTS_PATH/99-default-settings"
+          echo "✓ 已成功复制并设置执行权限"
         else
-          echo "⚠ 未找到99-default-settings文件，列出files目录内容:"
-          ls -la files/ 2>/dev/null || echo "files目录不存在"
+          echo "⚠ 未找到settings.patch文件，跳过自定义设置"
         fi
 
         echo "=== 修改完成，显示最终文件内容 ==="
-        if [ -f "files/99-default-settings" ]; then
+        if [ -f "$UCI_DEFAULTS_PATH/99-default-settings" ]; then
           echo "文件内容:"
-          cat files/99-default-settings
+          cat "$UCI_DEFAULTS_PATH/99-default-settings"
         fi
-
-    - name: 执行自定义脚本2
+    - name: 执行自定义脚本 2
       run: |
         [ -e $CONFIG_FILE ] && cp $CONFIG_FILE openwrt/.config
         chmod +x $DIY_P2_SH
