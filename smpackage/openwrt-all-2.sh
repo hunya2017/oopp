@@ -75,6 +75,22 @@ EOF
 
 echo "✓ 编译选项已优化"
 
+# ===== 禁用可能导致失败的包 =====
+echo "处理可能失败的包..."
+
+# 禁用Rust相关包（Rust编译容易失败且占用大量资源）
+echo "" >> .config
+echo "# 禁用Rust相关包以避免构建失败" >> .config
+echo "CONFIG_RUST_INCLUDES=n" >> .config
+echo "# CONFIG_PACKAGE_rust is not set" >> .config
+echo "# CONFIG_PACKAGE_rustc is not set" >> .config
+echo "# CONFIG_PACKAGE_cargo is not set" >> .config
+
+# 如果tcping依赖Rust，也禁用它
+echo "# CONFIG_PACKAGE_tcping is not set" >> .config
+
+echo "✓ 已禁用可能失败的包"
+
 # ===== 显示最终配置摘要 =====
 echo ""
 echo "=== 配置摘要 ==="
@@ -85,7 +101,10 @@ echo ""
 
 # ===== 生成最终的defconfig =====
 echo "生成defconfig..."
+echo "重新生成配置..."
 make defconfig
+
+echo "✓ defconfig生成完成"
 
 echo "=== OpenWrt编译前自定义脚本2执行完毕 ==="
 echo "准备开始编译..."

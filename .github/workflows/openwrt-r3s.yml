@@ -107,6 +107,29 @@ jobs:
         START_TIME=`date +'%Y-%m-%d %H:%M:%S'`
         echo "START_SECONDS=$(date --date="$START_TIME" +%s)" >> $GITHUB_ENV
 
+    - name: 安装Rust 工具链
+      run: |
+        echo "=== 安装Rust 工具链 ==="
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+        source $HOME/.cargo/env
+        rustup default stable
+        rustup update
+        echo "Rust 版本：$(rustc --version)"
+        echo "Cargo 版本：$(cargo --version)"
+
+    - name: 优化编译环境
+      run: |
+        echo "=== 优化编译环境 ==="
+        # 设置 Rust编译优化
+        echo "CARGO_HOME=$HOME/.cargo" >> $GITHUB_ENV
+        echo "RUSTUP_HOME=$HOME/.rustup" >> $GITHUB_ENV
+
+        # 增加系统内存限制
+        ulimit -n 65535
+
+        # 清理 Rust缓存以节省空间
+        cargo cache trim || true
+
     - name: 准备完成
       uses: actions/checkout@v4
 
