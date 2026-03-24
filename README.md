@@ -1,193 +1,98 @@
-# ImmortalWrt 自定义固件编译
-
-这个项目使用 GitHub Actions 自动编译 ImmortalWrt 固件，并应用自定义的默认设置。
-
-## 🚀 功能特性
-
-### 自定义默认配置
-- **管理地址**: 192.168.10.1
-- **用户名**: root
-- **密码**: password
-- **WiFi SSID**: ImmortalWrt-WiFi / ImmortalWrt-WiFi-5G
-- **WiFi密码**: 12345678
-- **语言**: 中文界面
-- **时区**: 亚洲/上海
-
-### 预装功能
-- 中文 Web 管理界面
-- 优化的网络配置
-- 自动时间同步（中国 NTP 服务器）
-- 基础网络工具和诊断工具
-- USB 存储支持
-- 系统管理脚本
-
-### 编译特性
-- 基于最新的 ImmortalWrt 源码
-- 支持缓存加速编译
-- 自动发布到 GitHub Releases
-- 详细的编译日志和调试信息
-
-## 📁 文件结构
-
-```
-├── .github/workflows/
-│   └── immortalwrt-all.yml        # GitHub Actions 工作流
-├── smpackage/
-│   ├── immortalwrt-all-1.sh       # 编译前脚本1
-│   ├── immortalwrt-all-2.sh       # 编译前脚本2
-│   ├── patch1.patch               # Makefile 补丁
-│   └── 99-my-default-settings     # 自定义设置脚本
-├── config/
-│   └── immortalwrt.info           # 编译配置文件
-└── README.md                       # 说明文档
-```
-
-## 🛠️ 使用方法
-
-### 1. Fork 此项目
-点击右上角的 "Fork" 按钮，将项目复制到你的 GitHub 账户。
-
-### 2. 配置 Secrets
-在你的仓库设置中，添加以下 Secrets：
-- `GIT_USER_TOKEN`: GitHub Personal Access Token (用于发布 Releases)
-
-### 3. 启动编译
-有以下几种方式启动编译：
-
-#### 方式一：手动触发
-1. 进入 Actions 页面
-2. 选择 "immortalwrt-all" 工作流
-3. 点击 "Run workflow"
-4. 根据需要调整选项后点击 "Run workflow"
-
-#### 方式二：Watch 触发
-Star 这个项目即可触发编译。
-
-#### 方式三：定时编译
-取消注释 workflow 文件中的 schedule 部分，设置定时编译。
-
-### 4. 编译选项说明
-- **缓存加速**: 启用编译缓存，加速后续编译
-- **上传固件**: 上传编译好的固件文件
-- **上传配置文件**: 上传编译配置和信息文件
-- **上传插件**: 上传编译的 IPK 插件包
-- **发布到 Releases**: 自动发布固件到 GitHub Releases
-- **SSH 连接**: 编译过程中启用 SSH 调试（仅调试时使用）
-
-## ⚙️ 自定义配置
-
-### 修改默认设置
-编辑 `smpackage/99-my-default-settings` 文件来修改：
-- 默认 IP 地址
-- WiFi 配置
-- 系统密码
-- 时区设置
-- 其他系统配置
-
-### 修改软件包
-编辑 `config/immortalwrt.info` 文件来：
-- 添加或移除软件包
-- 启用或禁用功能
-- 修改编译选项
-
-### 添加自定义补丁
-将补丁文件放在 `smpackage/` 目录下，并在脚本中应用。
-
-### 修改编译脚本
-- `immortalwrt-all-1.sh`: 在下载源码后执行的脚本
-- `immortalwrt-all-2.sh`: 在配置生成后执行的脚本
-
-## 📋 编译信息
-
-### 支持的设备
-- x86_64 设备（虚拟机、软路由、PC等）
-- 其他设备需要修改配置文件中的目标平台
-
-### 编译环境
-- Ubuntu 22.04 LTS
-- 多线程编译
-- 缓存加速支持
-
-### 编译输出
-编译完成后会生成以下文件：
-- 固件镜像文件 (.img, .vmdk, .vdi 等)
-- 软件包文件 (.ipk)
-- 配置信息文件
-- 编译日志
-
-## 🔧 管理命令
-
-固件内置了以下管理命令：
-
-```bash
-# 重置 WiFi 密码为默认值
-reset-wifi
-
-# 重置网络配置为默认值  
-reset-network
-```
-
-## 📝 默认配置信息
-
-### 网络配置
-```
-LAN IP: 192.168.10.1/24
-DHCP 范围: 192.168.10.100-250
-DHCP 租期: 12小时
-DNS: 自动获取
-```
-
-### WiFi 配置
-```
-2.4G SSID: ImmortalWrt-WiFi
-5G SSID: ImmortalWrt-WiFi-5G
-密码: 12345678
-加密: WPA2-PSK
-```
-
-### 系统配置
-```
-主机名: ImmortalWrt-Custom
-时区: Asia/Shanghai (CST-8)
-语言: 简体中文
-NTP 服务器: 阿里云 NTP
-```
-
-## 🐛 问题排查
-
-### 编译失败
-1. 检查 GitHub Actions 日志
-2. 确认配置文件语法正确
-3. 检查是否有冲突的软件包配置
-4. 尝试启用 SSH 调试模式
-
-### 固件问题
-1. 检查设备兼容性
-2. 确认固件完整性
-3. 尝试恢复出厂设置
-4. 查看系统日志
-
-### 网络问题
-1. 检查网线连接
-2. 确认 IP 地址配置
-3. 重置网络配置
-4. 检查防火墙规则
-
-## 📖 相关链接
-
-- [ImmortalWrt 官网](https://immortalwrt.org/)
-- [ImmortalWrt GitHub](https://github.com/immortalwrt/immortalwrt)
-- [OpenWrt 官方文档](https://openwrt.org/docs/start)
-- [LuCI 项目](https://github.com/openwrt/luci)
-
-## 📄 许可证
-
-本项目遵循 GPL-2.0 许可证。详情请参阅 [LICENSE](LICENSE) 文件。
-
-## 🤝 贡献
-
-欢迎提交 Issue 和 Pull Request 来改进这个项目。
-
----
-
-**注意**: 使用本固件需要一定的网络基础知识。首次使用建议在测试环境中进行。
+# 使用 GitHub Actions 编译 FriendlyWrt
+[English](README_en.md)
+### 基本信息 
+- 用户名：root
+- 密码：password
+- 后台IP：192.168.2.1
+- 固件下载地址： https://github.com/friendlyarm/Actions-FriendlyWrt/releases
+- 更多使用说明: https://wiki.friendlyelec.com/wiki/index.php/Template:FriendlyWrt21/zh
+### 固件说明
+- 同一固件文件同时支持安装至SD和eMMC，不作区分
+### 如何将固件写入eMMC  
+- 先将固件写入一张SD卡，然后从SD启动系统，访问FriendyWrt后台页面，进入菜单“系统”->“eMMC刷机助手”，上传固件文件直接刷入即可，文件无需解压，写入完成后，将SD卡弹出, 设备会自动重启并从eMMC引导系统。
+### 更新说明
+* 2026/03/06
+    * 增加 NanoPi-NEO3-Plus 支持
+* 2025/12/31
+    *  更新到新版本 openwrt-24.10.4
+    *  RK35xx内核更新至6.1.141
+* 2025/08/04
+    *  RK35xx内核更新至6.1.118
+* 2025/07/09
+    *  增加 NanoPi-R76S 支持
+    *  修复 PWM 风扇控制问题 (使用pwm-fan驱动模块)
+* 2025/06/30
+    *  更新到新版本 openwrt-24.10.2
+    *  更新了内核网络部分的配置
+* 2025/06/25
+    *  增加 NanoPi-R3S-LTS 支持
+* 2025/06/06
+    *  增加 NanoPi-M5 支持
+    *  增加 RTL8851BU 无线网卡的支持
+* 2025/03/24
+    *  修正opt分区inode过小的问题
+    *  从eMMC启动时，为内存超1G设备重新启用eMMC刷机助手
+* 2025/02/28
+    *  更新到新版本 openwrt-24.10.0
+    *  RK33xx内核更新至6.6.78+
+    *  调整分区：固定根分区大小，增加独立分区以提升 Docker 存储性能，恢复出厂设置后该分区数据仍会得到保留
+* 2025/02/11
+    *  RK35xx内核更新至6.1.99
+* 2024/12/09
+    *  修正luci-app-diskman插件的显示问题 (thanks [helmx](https://github.com/helmx))
+* 2024/10/16
+    *  更新到新版本 openwrt-23.05.5
+    *  增加 NanoPi-Zero2 支持
+* 2024/09/14 增加NanoPi-R3S支持
+* 2024/08/30
+    *  更新到新版本 openwrt-23.05.4
+    *  增加 NanoPi-M6 支持
+* 2024/07/03
+    *  修复因固件丢失而导致的WIFI问题
+* 2024/06/06
+    *  RK35xx内核更新至6.1.57
+* 2024/03/29
+    *  更新到新版本 openwrt-23.05.3
+* 2024/02/02
+    *  为模块rtl8822ce增加无线中继模式的支持,[设置方法](https://wiki.friendlyelec.com/wiki/index.php/NanoPi_R5C/zh#.E6.97.A0.E7.BA.BF.E4.B8.AD.E7.BB.A7.E6.A8.A1.E5.BC.8F)
+* 2023/12/22
+    *  更新到新版本 openwrt-23.05.2
+    *  修正eMMC刷机工具对大容量eMMC的兼容性问题
+* 2023/10/31
+    *  更新到新版本 openwrt-23.05.0
+    *  内核更新至6.1
+* 2023/07/04
+    *  内核更新至5.10.160 (rk3568/rk3588)
+* 2023/06/10
+    *  增加 MediaTek MT7921 无线网卡的支持
+* 2023/05/31
+    *  增加 NanoPC-T6 支持
+    *  更新 v22.03 到新版本 openwrt-22.03.5
+    *  更新 v21.02 到新版本 openwrt-21.02.7
+* 2023/04/26
+    *  增加 R5C-2GB 支持
+    *  更新 v22.03 到新版本 openwrt-22.03.4
+    *  更新 v21.02 到新版本 openwrt-21.02.6
+* 2023/03/15
+    *  增加R6C支持
+    *  更新initramfs,[可禁用OverlayFS或者创建额外的分区](https://wiki.friendlyelec.com/wiki/index.php/How_to_use_overlayfs_on_Linux/zh)
+* 2023/03/01
+    *  更新到新版本 openwrt-22.03.3
+    *  为rk3568/rk3588的5.10内核增加ntfs3驱动
+    *  更新内核小版本
+    *  更新网卡驱动
+* 2022/12/04
+    *  增加R5C支持
+    *  修正存储空间某些情况下无法扩展的问题
+    *  加强eMMC刷机工具的刷机稳定性
+* 2022/11/24
+    *  修正R6S 1G网口不可用问题  
+    *  eMMC刷机工具现可以在eMMC启动时使用  
+* 2022/11/01 增加R6S支持
+* 2022/10/09 首次发布
+### Thanks / 致谢
+- [luci-app-diskman](https://github.com/lisaac/luci-app-diskman)
+- [luci-theme-argon](https://github.com/jerrykuku/luci-theme-argon)
+- [P3TERX](https://github.com/P3TERX/Actions-OpenWrt)
+- [NanoPi-R1S-Build-By-Actions](https://github.com/skytotwo/NanoPi-R1S-Build-By-Actions)
+- [QiuSimons](https://github.com/QiuSimons/YAOF)
