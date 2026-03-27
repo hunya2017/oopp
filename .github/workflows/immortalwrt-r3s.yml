@@ -357,28 +357,34 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        cd openwrt
+        cd openwrt || exit
+
         if [ -f .config ]; then
-          # 确保目标目录存在
-          mkdir -p $(dirname $GITHUB_WORKSPACE/$CONFIG_FILE)
-          cp -f .config $GITHUB_WORKSPACE/$CONFIG_FILE
-          cd $GITHUB_WORKSPACE
-          
-          # 配置Git
+          # 创建目标目录
+          mkdir -p "$(dirname "$GITHUB_WORKSPACE/$CONFIG_FILE")"
+
+          # 复制 config
+          cp -f .config "$GITHUB_WORKSPACE/$CONFIG_FILE"
+
+          cd "$GITHUB_WORKSPACE" || exit
+
+          # 配置 Git
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # 检查 .config 文件是否有更改
-          if ! git diff --quiet -- $CONFIG_FILE; then
+
+          # 检查 config 是否变化
+          if ! git diff --quiet -- "$CONFIG_FILE"; then
             echo "检测到 .config 文件有更改，准备提交..."
-            
-            git add $CONFIG_FILE
+
+            git add "$CONFIG_FILE"
             git commit -m "bot: 更新编译配置 $(date '+%Y-%m-%d %H:%M:%S')"
-            git pull origin ${{ github.ref }}
-            
-            # 最多尝试3次推送
+
+            # 关键：避免 divergent branches
+            git pull --rebase origin "${GITHUB_REF##*/}"
+
+            # 最多尝试3次 push
             for i in {1..3}; do
-              if git push origin ${{ github.ref }}; then
+              if git push origin "${GITHUB_REF##*/}"; then
                 echo "✓ 配置文件已更新并提交 (尝试 $i/3)"
                 break
               else
@@ -388,12 +394,15 @@ jobs:
                 else
                   echo "第 $i 次推送失败，5秒后重试..."
                   sleep 5
+                  git pull --rebase origin "${GITHUB_REF##*/}"
                 fi
               fi
             done
+
           else
             echo "ℹ️ .config 文件没有更改，无需提交"
           fi
+
         else
           echo "⚠ .config 文件不存在"
           exit 1

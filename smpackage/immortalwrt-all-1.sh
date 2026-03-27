@@ -68,6 +68,12 @@ git clone https://github.com/nikkinikki-org/OpenWrt-momo.git package/OpenWrt-mom
 # 添加 AdGuardHome 插件
 git clone https://github.com/rufengsuixing/luci-app-adguardhome package/luci-app-adguardhome
 
+# 添加 passwall2
+git clone https://github.com/Openwrt-Passwall/openwrt-passwall2.git package/openwrt-passwall2
+
+
+
+
 # ===== 修改目标架构配置 =====
 echo "检查目标架构配置..."
 
