@@ -4,51 +4,83 @@ echo "开始应用自定义设置..."
 
 # 定义默认值
 root_password="password"
-lan_ip_address="192.168.10.1"
+lan_ip_address="192.168.8.1"
 # wlan_name="ImmortalWrt"
 # wlan_password="12345678"
 
-# root 密码（仅在默认还是空密码时才设置）
-if passwd -S root 2>/dev/null | grep -q "NP"; then
+# PPPoE 拨号设置（从环境变量读取，避免明文存储）
+# 在 GitHub Actions 中使用 Secrets 设置 PPPOE_USERNAME 和 PPPOE_PASSWORD
+pppoe_username="${PPPOE_USERNAME:-}"
+pppoe_password="${PPPOE_PASSWORD:-}"
+
+# 检查是否是首次启动（通过检查是否存在首次启动标记文件）
+FIRST_BOOT_MARKER="/etc/.first_boot_marker"
+
+# root 密码（仅在首次启动或默认还是空密码时才设置）
+if [ ! -f "$FIRST_BOOT_MARKER" ] && passwd -S root 2>/dev/null | grep -q "NP"; then
   echo "设置 root 密码"
   (echo "$root_password"; sleep 1; echo "$root_password") | passwd root >/dev/null 2>&1
 fi
 
-# LAN IP（如果已有配置就不动）
-if [ -n "$lan_ip_address" ] && [ "$(uci -q get network.lan.ipaddr)" != "$lan_ip_address" ]; then
-  echo "设置 LAN IP 为 $lan_ip_address"
-  uci set network.lan.ipaddr="$lan_ip_address"
-fi
-
-# DHCP 租期（只在未配置时设置）
-uci -q get dhcp.lan.leasetime >/dev/null || uci set dhcp.lan.leasetime='2m'
-
-# WiFi（仅在无线未启用时才配置）
-if [ -n "$wlan_name" ] && [ -n "$wlan_password" ] && [ ${#wlan_password} -ge 8 ]; then
-  if [ "$(uci -q get wireless.@wifi-device[0].disabled)" = "1" ]; then
-    echo "启用并配置 WiFi"
-    uci set wireless.@wifi-device[0].disabled='0'
-    uci set wireless.@wifi-iface[0].disabled='0'
-    uci set wireless.@wifi-iface[0].encryption='psk2'
-    uci set wireless.@wifi-iface[0].ssid="$wlan_name"
-    uci set wireless.@wifi-iface[0].key="$wlan_password"
+# LAN IP（仅在首次启动或当前 IP 为默认值时才修改）
+if [ ! -f "$FIRST_BOOT_MARKER" ] || [ "$(uci -q get network.lan.ipaddr)" = "192.168.1.1" ]; then
+  if [ -n "$lan_ip_address" ] && [ "$(uci -q get network.lan.ipaddr)" != "$lan_ip_address" ]; then
+    echo "设置 LAN IP 为 $lan_ip_address"
+    uci set network.lan.ipaddr="$lan_ip_address"
   fi
 fi
 
-# 系统设置（如果主机名未修改才设置）
-if [ "$(uci -q get system.@system[0].hostname)" = "OpenWrt" ]; then
-  uci set system.@system[0].hostname='ImmortalWrt'
+# DHCP 租期（仅在首次启动或未配置时设置）
+if [ ! -f "$FIRST_BOOT_MARKER" ]; then
+  uci -q get dhcp.lan.leasetime >/dev/null || uci set dhcp.lan.leasetime='2m'
 fi
 
-# 基本网络设置（只在未配置时设置）
-uci -q get network.lan.delegate >/dev/null || uci set network.lan.delegate='0'
-uci -q get network.lan.ip6assign >/dev/null || uci set network.lan.ip6assign='64'
-uci -q get network.lan.ip6ifaceid >/dev/null || uci set network.lan.ip6ifaceid='eui64'
+# WiFi（仅在首次启动且无线未启用时才配置）
+if [ ! -f "$FIRST_BOOT_MARKER" ]; then
+  if [ -n "$wlan_name" ] && [ -n "$wlan_password" ] && [ ${#wlan_password} -ge 8 ]; then
+    if [ "$(uci -q get wireless.@wifi-device[0].disabled)" = "1" ]; then
+      echo "启用并配置 WiFi"
+      uci set wireless.@wifi-device[0].disabled='0'
+      uci set wireless.@wifi-iface[0].disabled='0'
+      uci set wireless.@wifi-iface[0].encryption='psk2'
+      uci set wireless.@wifi-iface[0].ssid="$wlan_name"
+      uci set wireless.@wifi-iface[0].key="$wlan_password"
+    fi
+  fi
+fi
 
-# DHCP 高级设置（只在未配置时设置）
-uci -q get dhcp.lan.ra >/dev/null || uci set dhcp.lan.ra='server'
-uci -q get dhcp.lan.ra_flags >/dev/null || uci add_list dhcp.lan.ra_flags='none'
-uci -q get dhcp.lan.dns_service >/dev/null || uci set dhcp.lan.dns_service='0'
+# 系统设置（仅在首次启动且主机名未修改才设置）
+if [ ! -f "$FIRST_BOOT_MARKER" ]; then
+  if [ "$(uci -q get system.@system[0].hostname)" = "OpenWrt" ]; then
+    uci set system.@system[0].hostname='ImmortalWrt'
+  fi
+fi
+
+# 基本网络设置（仅在首次启动且未配置时设置）
+if [ ! -f "$FIRST_BOOT_MARKER" ]; then
+  uci -q get network.lan.delegate >/dev/null || uci set network.lan.delegate='0'
+  uci -q get network.lan.ip6assign >/dev/null || uci set network.lan.ip6assign='64'
+  uci -q get network.lan.ip6ifaceid >/dev/null || uci set network.lan.ip6ifaceid='eui64'
+fi
+
+# DHCP 高级设置（仅在首次启动且未配置时设置）
+if [ ! -f "$FIRST_BOOT_MARKER" ]; then
+  uci -q get dhcp.lan.ra >/dev/null || uci set dhcp.lan.ra='server'
+  uci -q get dhcp.lan.ra_flags >/dev/null || uci add_list dhcp.lan.ra_flags='none'
+  uci -q get dhcp.lan.dns_service >/dev/null || uci set dhcp.lan.dns_service='0'
+fi
+
+# PPPoE 拨号设置（仅在首次启动时配置）
+if [ ! -f "$FIRST_BOOT_MARKER" ]; then
+  # 如果设置了 PPPoE 账号密码就配置
+  if [ -n "$pppoe_username" ] && [ -n "$pppoe_password" ]; then
+    echo "配置 PPPoE 拨号..."
+    uci set network.wan.proto='pppoe'
+    uci set network.wan.username="$pppoe_username"
+    uci set network.wan.password="$pppoe_password"
+    uci commit network
+  fi
+fi
 
 # Host 绑定（先检查是否已存在该 MAC）
 add_static_host() {
@@ -62,13 +94,15 @@ add_static_host() {
   fi
 }
 
-# 添加静态地址绑定
-add_static_host "DESKTOP-DR6M5VG" "192.168.10.107" "30:9C:23:E1:E3:72"
-add_static_host "armbian" "192.168.10.158" "6A:CE:3B:D4:CB:8B"
-add_static_host "WIN-LMSJ088AVIQ" "192.168.10.180" "7C:2B:E1:13:6E:83"
+# 添加静态地址绑定（仅在首次启动时添加）
+if [ ! -f "$FIRST_BOOT_MARKER" ]; then
+  add_static_host "DESKTOP-DR6M5VG" "192.168.10.107" "30:9C:23:E1:E3:72"
+  add_static_host "armbian" "192.168.10.158" "6A:CE:3B:D4:CB:8B"
+  add_static_host "WIN-LMSJ088AVIQ" "192.168.10.180" "7C:2B:E1:13:6E:83"
+fi
 
-# zerotier 设置（如果安装了才配置）
-if opkg list-installed | grep -q "^zerotier"; then
+# zerotier 设置（仅在首次启动且安装了才配置）
+if [ ! -f "$FIRST_BOOT_MARKER" ] && opkg list-installed | grep -q "^zerotier"; then
   # 删除现有配置
   uci -q del zerotier.earth.enabled
   uci -q del zerotier.earth.allow_managed
@@ -91,8 +125,8 @@ if opkg list-installed | grep -q "^zerotier"; then
   uci set zerotier.global.enabled='1'
 fi
 
-# vlmcsd 设置（如果安装了才配置）
-if opkg list-installed | grep -q "^vlmcsd"; then
+# vlmcsd 设置（仅在首次启动且安装了才配置）
+if [ ! -f "$FIRST_BOOT_MARKER" ] && opkg list-installed | grep -q "^vlmcsd"; then
   uci -q get vlmcsd.config.enabled >/dev/null || uci set vlmcsd.config.enabled='1'
   uci -q get vlmcsd.config.auto_activate >/dev/null || uci set vlmcsd.config.auto_activate='1'
   uci -q get vlmcsd.config.internet_access >/dev/null || uci set vlmcsd.config.internet_access='1'
@@ -101,6 +135,12 @@ fi
 
 # 提交更改
 uci commit
+
+# 如果是首次启动，创建标记文件
+if [ ! -f "$FIRST_BOOT_MARKER" ]; then
+  touch "$FIRST_BOOT_MARKER"
+  echo "已创建首次启动标记，下次启动将保留用户配置"
+fi
 
 echo "自定义设置应用完成"
 # === 自定义设置结束 ===
