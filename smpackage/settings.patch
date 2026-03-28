@@ -1,5 +1,23 @@
 # === 自定义设置开始 ===
 
+# 记录补丁执行日志
+LOG_FILE="/var/log/settings_patch.log"
+log() {
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE"
+}
+
+log "======================================="
+log "开始应用自定义设置补丁"
+log "补丁执行时间：$(date)"
+log "系统运行时间：$(uptime -p 2>/dev/null || echo '未知')"
+
+# 检查是否是首次启动
+if [ -f "/etc/.first_boot_marker" ]; then
+  log "检测到首次启动标记，将跳过配置保护"
+else
+  log "首次启动，将应用全部配置"
+fi
+
 echo "开始应用自定义设置..."
 
 # 定义默认值
@@ -18,68 +36,143 @@ FIRST_BOOT_MARKER="/etc/.first_boot_marker"
 
 # root 密码（仅在首次启动或默认还是空密码时才设置）
 if [ ! -f "$FIRST_BOOT_MARKER" ] && passwd -S root 2>/dev/null | grep -q "NP"; then
-  echo "设置 root 密码"
+  log "[ROOT 密码] 正在设置 root 密码..."
   (echo "$root_password"; sleep 1; echo "$root_password") | passwd root >/dev/null 2>&1
+  log "[ROOT 密码] 设置完成"
+else
+  if [ -f "$FIRST_BOOT_MARKER" ]; then
+    log "[ROOT 密码] 跳过 - 已存在首次启动标记"
+  else
+    log "[ROOT 密码] 跳过 - root 账户已有密码"
+  fi
 fi
 
 # LAN IP（仅在首次启动或当前 IP 为默认值时才修改）
 if [ ! -f "$FIRST_BOOT_MARKER" ] || [ "$(uci -q get network.lan.ipaddr)" = "192.168.1.1" ]; then
   if [ -n "$lan_ip_address" ] && [ "$(uci -q get network.lan.ipaddr)" != "$lan_ip_address" ]; then
-    echo "设置 LAN IP 为 $lan_ip_address"
+    log "[LAN IP] 设置为 $lan_ip_address"
     uci set network.lan.ipaddr="$lan_ip_address"
+    log "[LAN IP] 设置完成"
+  else
+    log "[LAN IP] 跳过 - IP 已是 $lan_ip_address 或未设置"
   fi
+else
+  log "[LAN IP] 跳过 - 已存在首次启动标记"
 fi
 
 # DHCP 租期（仅在首次启动或未配置时设置）
 if [ ! -f "$FIRST_BOOT_MARKER" ]; then
-  uci -q get dhcp.lan.leasetime >/dev/null || uci set dhcp.lan.leasetime='2m'
+  if ! uci -q get dhcp.lan.leasetime >/dev/null; then
+    log "[DHCP 租期] 设置为 2m"
+    uci set dhcp.lan.leasetime='2m'
+  else
+    log "[DHCP 租期] 跳过 - 已配置"
+  fi
+else
+  log "[DHCP 租期] 跳过 - 已存在首次启动标记"
 fi
 
 # WiFi（仅在首次启动且无线未启用时才配置）
 if [ ! -f "$FIRST_BOOT_MARKER" ]; then
   if [ -n "$wlan_name" ] && [ -n "$wlan_password" ] && [ ${#wlan_password} -ge 8 ]; then
     if [ "$(uci -q get wireless.@wifi-device[0].disabled)" = "1" ]; then
-      echo "启用并配置 WiFi"
+      log "[WiFi] 启用并配置 WiFi - SSID: $wlan_name"
       uci set wireless.@wifi-device[0].disabled='0'
       uci set wireless.@wifi-iface[0].disabled='0'
       uci set wireless.@wifi-iface[0].encryption='psk2'
       uci set wireless.@wifi-iface[0].ssid="$wlan_name"
       uci set wireless.@wifi-iface[0].key="$wlan_password"
+      log "[WiFi] 配置完成"
+    else
+      log "[WiFi] 跳过 - WiFi 已启用"
     fi
+  else
+    log "[WiFi] 跳过 - 未设置 WiFi 名称或密码"
   fi
+else
+  log "[WiFi] 跳过 - 已存在首次启动标记"
 fi
 
 # 系统设置（仅在首次启动且主机名未修改才设置）
 if [ ! -f "$FIRST_BOOT_MARKER" ]; then
   if [ "$(uci -q get system.@system[0].hostname)" = "OpenWrt" ]; then
+    log "[系统设置] 设置主机名为 ImmortalWrt"
     uci set system.@system[0].hostname='ImmortalWrt'
+  else
+    log "[系统设置] 跳过 - 主机名已修改"
   fi
+else
+  log "[系统设置] 跳过 - 已存在首次启动标记"
 fi
 
 # 基本网络设置（仅在首次启动且未配置时设置）
 if [ ! -f "$FIRST_BOOT_MARKER" ]; then
-  uci -q get network.lan.delegate >/dev/null || uci set network.lan.delegate='0'
-  uci -q get network.lan.ip6assign >/dev/null || uci set network.lan.ip6assign='64'
-  uci -q get network.lan.ip6ifaceid >/dev/null || uci set network.lan.ip6ifaceid='eui64'
+  if ! uci -q get network.lan.delegate >/dev/null; then
+    log "[基本网络] 设置 delegate=0"
+    uci set network.lan.delegate='0'
+  fi
+  if ! uci -q get network.lan.ip6assign >/dev/null; then
+    log "[基本网络] 设置 ip6assign=64"
+    uci set network.lan.ip6assign='64'
+  fi
+  if ! uci -q get network.lan.ip6ifaceid >/dev/null; then
+    log "[基本网络] 设置 ip6ifaceid=eui64"
+    uci set network.lan.ip6ifaceid='eui64'
+  fi
+  log "[基本网络] 配置完成"
+else
+  log "[基本网络] 跳过 - 已存在首次启动标记"
 fi
 
 # DHCP 高级设置（仅在首次启动且未配置时设置）
 if [ ! -f "$FIRST_BOOT_MARKER" ]; then
-  uci -q get dhcp.lan.ra >/dev/null || uci set dhcp.lan.ra='server'
-  uci -q get dhcp.lan.ra_flags >/dev/null || uci add_list dhcp.lan.ra_flags='none'
-  uci -q get dhcp.lan.dns_service >/dev/null || uci set dhcp.lan.dns_service='0'
+  if ! uci -q get dhcp.lan.ra >/dev/null; then
+    log "[DHCP 高级] 设置 ra=server"
+    uci set dhcp.lan.ra='server'
+  fi
+  if ! uci -q get dhcp.lan.ra_flags >/dev/null; then
+    log "[DHCP 高级] 添加 ra_flags=none"
+    uci add_list dhcp.lan.ra_flags='none'
+  fi
+  if ! uci -q get dhcp.lan.dns_service >/dev/null; then
+    log "[DHCP 高级] 设置 dns_service=0"
+    uci set dhcp.lan.dns_service='0'
+  fi
+  # 删除 SLAAC 和 DHCPv6 配置
+  log "[DHCP 高级] 删除 ra_slaac 和 dhcpv6 配置"
+  uci -q del dhcp.lan.ra_slaac
+  uci -q del dhcp.lan.dhcpv6
+  log "[DHCP 高级] 配置完成"
+else
+  log "[DHCP 高级] 跳过 - 已存在首次启动标记"
+fi
+
+# 设置 LAN 子网掩码（仅在首次启动时配置）
+if [ ! -f "$FIRST_BOOT_MARKER" ]; then
+  log "[LAN 子网掩码] 设置为 255.255.252.0"
+  uci set network.lan.netmask='255.255.252.0'
+else
+  log "[LAN 子网掩码] 跳过 - 已存在首次启动标记"
 fi
 
 # PPPoE 拨号设置（仅在首次启动时配置）
 if [ ! -f "$FIRST_BOOT_MARKER" ]; then
-  # 如果设置了 PPPoE 账号密码就配置
-  if [ -n "$pppoe_username" ] && [ -n "$pppoe_password" ]; then
-    echo "配置 PPPoE 拨号..."
-    uci set network.wan.proto='pppoe'
-    uci set network.wan.username="$pppoe_username"
-    uci set network.wan.password="$pppoe_password"
-    uci commit network
-  fi
+  # 配置 PPPoE 拨号
+  log "======================================="
+  log "[PPPoE] 配置 PPPoE 拨号"
+  log "[PPPoE]   账号：053901233640"
+  log "[PPPoE]   IPv6: auto"
+  log "[PPPoE]   不释放连接：1"
+  uci set network.wan.proto='pppoe'
+  uci set network.wan.username='053901233640'
+  uci set network.wan.password='521131'
+  uci set network.wan.ipv6='auto'
+  uci set network.wan.norelease='1'
+  uci commit network
+  log "[PPPoE] 配置完成！"
+  log "======================================="
+else
+  log "[PPPoE] 跳过 - 已存在首次启动标记"
 fi
 
 # Host 绑定（先检查是否已存在该 MAC）
@@ -96,13 +189,18 @@ add_static_host() {
 
 # 添加静态地址绑定（仅在首次启动时添加）
 if [ ! -f "$FIRST_BOOT_MARKER" ]; then
+  log "[静态 DHCP] 开始添加静态地址绑定"
   add_static_host "DESKTOP-DR6M5VG" "192.168.10.107" "30:9C:23:E1:E3:72"
   add_static_host "armbian" "192.168.10.158" "6A:CE:3B:D4:CB:8B"
   add_static_host "WIN-LMSJ088AVIQ" "192.168.10.180" "7C:2B:E1:13:6E:83"
+  log "[静态 DHCP] 配置完成"
+else
+  log "[静态 DHCP] 跳过 - 已存在首次启动标记"
 fi
 
 # zerotier 设置（仅在首次启动且安装了才配置）
 if [ ! -f "$FIRST_BOOT_MARKER" ] && opkg list-installed | grep -q "^zerotier"; then
+  log "[ZeroTier] 检测到已安装，开始配置"
   # 删除现有配置
   uci -q del zerotier.earth.enabled
   uci -q del zerotier.earth.allow_managed
@@ -123,13 +221,37 @@ if [ ! -f "$FIRST_BOOT_MARKER" ] && opkg list-installed | grep -q "^zerotier"; t
   uci set zerotier.earth.fw_allow_forward='1'
   uci set zerotier.earth.fw_allow_masq='1'
   uci set zerotier.global.enabled='1'
+  log "[ZeroTier] 配置完成"
+else
+  if [ -f "$FIRST_BOOT_MARKER" ]; then
+    log "[ZeroTier] 跳过 - 已存在首次启动标记"
+  else
+    log "[ZeroTier] 跳过 - 未安装 zerotier"
+  fi
 fi
 
 # vlmcsd 设置（仅在首次启动且安装了才配置）
 if [ ! -f "$FIRST_BOOT_MARKER" ] && opkg list-installed | grep -q "^vlmcsd"; then
-  uci -q get vlmcsd.config.enabled >/dev/null || uci set vlmcsd.config.enabled='1'
-  uci -q get vlmcsd.config.auto_activate >/dev/null || uci set vlmcsd.config.auto_activate='1'
-  uci -q get vlmcsd.config.internet_access >/dev/null || uci set vlmcsd.config.internet_access='1'
+  log "[vlmcsd] 检测到已安装，开始配置"
+  if ! uci -q get vlmcsd.config.enabled >/dev/null; then
+    log "[vlmcsd] 设置 enabled=1"
+    uci set vlmcsd.config.enabled='1'
+  fi
+  if ! uci -q get vlmcsd.config.auto_activate >/dev/null; then
+    log "[vlmcsd] 设置 auto_activate=1"
+    uci set vlmcsd.config.auto_activate='1'
+  fi
+  if ! uci -q get vlmcsd.config.internet_access >/dev/null; then
+    log "[vlmcsd] 设置 internet_access=1"
+    uci set vlmcsd.config.internet_access='1'
+  fi
+  log "[vlmcsd] 配置完成"
+else
+  if [ -f "$FIRST_BOOT_MARKER" ]; then
+    log "[vlmcsd] 跳过 - 已存在首次启动标记"
+  else
+    log "[vlmcsd] 跳过 - 未安装 vlmcsd"
+  fi
 fi
 
 
@@ -139,8 +261,10 @@ uci commit
 # 如果是首次启动，创建标记文件
 if [ ! -f "$FIRST_BOOT_MARKER" ]; then
   touch "$FIRST_BOOT_MARKER"
-  echo "已创建首次启动标记，下次启动将保留用户配置"
+  log "已创建首次启动标记文件"
 fi
 
+log "自定义设置补丁执行完成"
+log "======================================="
 echo "自定义设置应用完成"
 # === 自定义设置结束 ===
