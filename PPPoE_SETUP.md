@@ -36,7 +36,7 @@
 
 ```bash
 # SSH 登录路由器
-ssh root@192.168.10.1
+ssh root@192.168.8.1
 
 # 查看网络配置
 uci show network.wan

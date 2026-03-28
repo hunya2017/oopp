@@ -5,7 +5,7 @@
 ## 🚀 功能特性
 
 ### 自定义默认配置
-- **管理地址**: 192.168.10.1
+- **管理地址**: 192.168.8.1
 - **用户名**: root
 - **密码**: password
 - **WiFi SSID**: ImmortalWrt-WiFi / ImmortalWrt-WiFi-5G
@@ -33,12 +33,13 @@
 ├── .github/workflows/
 │   └── immortalwrt-all.yml        # GitHub Actions 工作流
 ├── smpackage/
-│   ├── immortalwrt-all-1.sh       # 编译前脚本1
-│   ├── immortalwrt-all-2.sh       # 编译前脚本2
-│   ├── patch1.patch               # Makefile 补丁
-│   └── 99-my-default-settings     # 自定义设置脚本
+│   ├── immortalwrt-all-1.sh       # 编译前脚本 1（更新 feeds 前执行）
+│   ├── immortalwrt-all-2.sh       # 编译前脚本 2（配置加载后执行）
+│   ├── settings.patch             # 自定义设置补丁脚本
+│   └── settings.patch             # 系统设置补丁（首次启动时应用）
 ├── config/
 │   └── immortalwrt.info           # 编译配置文件
+├── PPPoE_SETUP.md                  # PPPoE 配置指南
 └── README.md                       # 说明文档
 ```
 
@@ -131,8 +132,8 @@ reset-network
 
 ### 网络配置
 ```
-LAN IP: 192.168.10.1/24
-DHCP 范围: 192.168.10.100-250
+LAN IP: 192.168.8.1/22
+DHCP 范围：192.168.8.100-250
 DHCP 租期: 12小时
 DNS: 自动获取
 ```

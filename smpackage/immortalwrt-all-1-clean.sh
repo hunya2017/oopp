@@ -26,7 +26,7 @@ if [ -f "feeds.conf.default" ]; then
     echo "修改后的feeds.conf.default内容:"
     cat feeds.conf.default
 else
-    echo "警告: feeds.conf.default文件不存�?
+    echo "警告：feeds.conf.default 文件不存在"
 fi
 
 # ===== 修改版本信息 =====

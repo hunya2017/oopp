@@ -23,8 +23,7 @@ echo "开始应用自定义设置..."
 # 定义默认值
 root_password="password"
 lan_ip_address="192.168.8.1"
-# wlan_name="ImmortalWrt"
-# wlan_password="12345678"
+
 
 # PPPoE 拨号设置（从环境变量读取，避免明文存储）
 # 在 GitHub Actions 中使用 Secrets 设置 PPPOE_USERNAME 和 PPPOE_PASSWORD
@@ -34,64 +33,45 @@ pppoe_password="${PPPOE_PASSWORD:-}"
 # 检查是否是首次启动（通过检查是否存在首次启动标记文件）
 FIRST_BOOT_MARKER="/etc/.first_boot_marker"
 
-# root 密码（仅在首次启动或默认还是空密码时才设置）
-if [ ! -f "$FIRST_BOOT_MARKER" ] && passwd -S root 2>/dev/null | grep -q "NP"; then
-  log "[ROOT 密码] 正在设置 root 密码..."
-  (echo "$root_password"; sleep 1; echo "$root_password") | passwd root >/dev/null 2>&1
-  log "[ROOT 密码] 设置完成"
-else
-  if [ -f "$FIRST_BOOT_MARKER" ]; then
-    log "[ROOT 密码] 跳过 - 已存在首次启动标记"
-  else
-    log "[ROOT 密码] 跳过 - root 账户已有密码"
-  fi
+# 强制模式：如果存在.force_reset 文件，则删除标记文件强制执行
+if [ -f "/etc/.force_reset" ]; then
+  log "[强制模式] 检测到强制重置标记，删除首次启动标记"
+  rm -f "$FIRST_BOOT_MARKER"
+  rm -f "/etc/.force_reset"
 fi
 
-# LAN IP（仅在首次启动或当前 IP 为默认值时才修改）
-if [ ! -f "$FIRST_BOOT_MARKER" ] || [ "$(uci -q get network.lan.ipaddr)" = "192.168.1.1" ]; then
-  if [ -n "$lan_ip_address" ] && [ "$(uci -q get network.lan.ipaddr)" != "$lan_ip_address" ]; then
+# root 密码（仅在首次启动时强制设置）
+if [ ! -f "$FIRST_BOOT_MARKER" ]; then
+  log "[ROOT 密码] 正在设置 root 密码..."
+  echo "root:$root_password" | chpasswd 2>/dev/null || (echo "$root_password"; sleep 1; echo "$root_password") | passwd root >/dev/null 2>&1
+  log "[ROOT 密码] 设置完成 - 密码：$root_password"
+else
+  log "[ROOT 密码] 跳过 - 已存在首次启动标记"
+fi
+
+# LAN IP（仅在首次启动时强制设置）
+if [ ! -f "$FIRST_BOOT_MARKER" ]; then
+  if [ -n "$lan_ip_address" ]; then
+    log "[LAN IP] 当前 IP: $(uci -q get network.lan.ipaddr)"
     log "[LAN IP] 设置为 $lan_ip_address"
     uci set network.lan.ipaddr="$lan_ip_address"
     log "[LAN IP] 设置完成"
   else
-    log "[LAN IP] 跳过 - IP 已是 $lan_ip_address 或未设置"
+    log "[LAN IP] 跳过 - 未设置 IP 地址"
   fi
 else
-  log "[LAN IP] 跳过 - 已存在首次启动标记"
+  log "[LAN IP] 跳过 - 已存在首次启动标记 (如需重置请删除 $FIRST_BOOT_MARKER)"
 fi
 
-# DHCP 租期（仅在首次启动或未配置时设置）
+# DHCP 租期（仅在首次启动时强制设置）
 if [ ! -f "$FIRST_BOOT_MARKER" ]; then
-  if ! uci -q get dhcp.lan.leasetime >/dev/null; then
-    log "[DHCP 租期] 设置为 2m"
-    uci set dhcp.lan.leasetime='2m'
-  else
-    log "[DHCP 租期] 跳过 - 已配置"
-  fi
+  log "[DHCP 租期] 设置为 12h"
+  uci set dhcp.lan.leasetime='12h'
+  log "[DHCP 租期] 设置完成"
 else
   log "[DHCP 租期] 跳过 - 已存在首次启动标记"
 fi
 
-# WiFi（仅在首次启动且无线未启用时才配置）
-if [ ! -f "$FIRST_BOOT_MARKER" ]; then
-  if [ -n "$wlan_name" ] && [ -n "$wlan_password" ] && [ ${#wlan_password} -ge 8 ]; then
-    if [ "$(uci -q get wireless.@wifi-device[0].disabled)" = "1" ]; then
-      log "[WiFi] 启用并配置 WiFi - SSID: $wlan_name"
-      uci set wireless.@wifi-device[0].disabled='0'
-      uci set wireless.@wifi-iface[0].disabled='0'
-      uci set wireless.@wifi-iface[0].encryption='psk2'
-      uci set wireless.@wifi-iface[0].ssid="$wlan_name"
-      uci set wireless.@wifi-iface[0].key="$wlan_password"
-      log "[WiFi] 配置完成"
-    else
-      log "[WiFi] 跳过 - WiFi 已启用"
-    fi
-  else
-    log "[WiFi] 跳过 - 未设置 WiFi 名称或密码"
-  fi
-else
-  log "[WiFi] 跳过 - 已存在首次启动标记"
-fi
 
 # 系统设置（仅在首次启动且主机名未修改才设置）
 if [ ! -f "$FIRST_BOOT_MARKER" ]; then
@@ -105,72 +85,35 @@ else
   log "[系统设置] 跳过 - 已存在首次启动标记"
 fi
 
-# 基本网络设置（仅在首次启动且未配置时设置）
-if [ ! -f "$FIRST_BOOT_MARKER" ]; then
-  if ! uci -q get network.lan.delegate >/dev/null; then
-    log "[基本网络] 设置 delegate=0"
-    uci set network.lan.delegate='0'
-  fi
-  if ! uci -q get network.lan.ip6assign >/dev/null; then
-    log "[基本网络] 设置 ip6assign=64"
-    uci set network.lan.ip6assign='64'
-  fi
-  if ! uci -q get network.lan.ip6ifaceid >/dev/null; then
-    log "[基本网络] 设置 ip6ifaceid=eui64"
-    uci set network.lan.ip6ifaceid='eui64'
-  fi
-  log "[基本网络] 配置完成"
-else
-  log "[基本网络] 跳过 - 已存在首次启动标记"
-fi
-
-# DHCP 高级设置（仅在首次启动且未配置时设置）
-if [ ! -f "$FIRST_BOOT_MARKER" ]; then
-  if ! uci -q get dhcp.lan.ra >/dev/null; then
-    log "[DHCP 高级] 设置 ra=server"
-    uci set dhcp.lan.ra='server'
-  fi
-  if ! uci -q get dhcp.lan.ra_flags >/dev/null; then
-    log "[DHCP 高级] 添加 ra_flags=none"
-    uci add_list dhcp.lan.ra_flags='none'
-  fi
-  if ! uci -q get dhcp.lan.dns_service >/dev/null; then
-    log "[DHCP 高级] 设置 dns_service=0"
-    uci set dhcp.lan.dns_service='0'
-  fi
-  # 删除 SLAAC 和 DHCPv6 配置
-  log "[DHCP 高级] 删除 ra_slaac 和 dhcpv6 配置"
-  uci -q del dhcp.lan.ra_slaac
-  uci -q del dhcp.lan.dhcpv6
-  log "[DHCP 高级] 配置完成"
-else
-  log "[DHCP 高级] 跳过 - 已存在首次启动标记"
-fi
-
-# 设置 LAN 子网掩码（仅在首次启动时配置）
+# 设置 LAN 子网掩码（仅在首次启动时强制设置）
 if [ ! -f "$FIRST_BOOT_MARKER" ]; then
   log "[LAN 子网掩码] 设置为 255.255.252.0"
   uci set network.lan.netmask='255.255.252.0'
+  log "[LAN 子网掩码] 设置完成"
 else
   log "[LAN 子网掩码] 跳过 - 已存在首次启动标记"
 fi
 
 # PPPoE 拨号设置（仅在首次启动时配置）
 if [ ! -f "$FIRST_BOOT_MARKER" ]; then
-  # 配置 PPPoE 拨号
-  log "======================================="
-  log "[PPPoE] 配置 PPPoE 拨号"
-  log "[PPPoE]   账号：053901233640"
-  log "[PPPoE]   IPv6: auto"
-  log "[PPPoE]   不释放连接：1"
-  uci set network.wan.proto='pppoe'
-  uci set network.wan.username='053901233640'
-  uci set network.wan.password='521131'
-  uci set network.wan.ipv6='auto'
-  uci set network.wan.norelease='1'
-  uci commit network
-  log "[PPPoE] 配置完成！"
-  log "======================================="
+  # 仅在设置了环境变量时才配置 PPPoE
+  if [ -n "$pppoe_username" ] && [ -n "$pppoe_password" ]; then
+    log "======================================="
+    log "[PPPoE] 配置 PPPoE 拨号"
+    log "[PPPoE]   账号：${pppoe_username}"
+    log "[PPPoE]   IPv6: auto"
+    log "[PPPoE]   不释放连接：1"
+    uci set network.wan.proto='pppoe'
+    uci set network.wan.username="$pppoe_username"
+    uci set network.wan.password="$pppoe_password"
+    uci set network.wan.ipv6='auto'
+    uci set network.wan.norelease='1'
+    uci commit network
+    log "[PPPoE] 配置完成！"
+    log "======================================="
+  else
+    log "[PPPoE] 跳过 - 未设置环境变量 PPPOE_USERNAME 和 PPPOE_PASSWORD"
+  fi
 else
   log "[PPPoE] 跳过 - 已存在首次启动标记"
 fi
@@ -255,13 +198,23 @@ else
 fi
 
 
-# 提交更改
+# 提交所有更改并重启相关服务
+log "提交所有 UCI 配置更改..."
 uci commit
 
-# 如果是首次启动，创建标记文件
+# 如果是首次启动，需要在配置应用后重启网络服务
 if [ ! -f "$FIRST_BOOT_MARKER" ]; then
+  log "首次启动，重启网络服务以应用配置..."
+  /etc/init.d/network restart 2>/dev/null || log "[警告] 网络服务重启失败"
+  sleep 2
+  
+  # 创建首次启动标记
   touch "$FIRST_BOOT_MARKER"
   log "已创建首次启动标记文件"
+  
+  log "所有配置已应用，网络服务已重启"
+else
+  log "非首次启动，跳过网络服务重启"
 fi
 
 log "自定义设置补丁执行完成"
