@@ -24,6 +24,10 @@ echo "开始应用自定义设置..."
 root_password="password"
 lan_ip_address="192.168.8.1"
 
+# PPPoE 手动配置账号密码（如需自动配置请使用环境变量）
+pppoe_manual_username=""
+pppoe_manual_password=""
+
 
 # PPPoE 拨号设置（从环境变量读取，避免明文存储）
 # 在 GitHub Actions 中使用 Secrets 设置 PPPOE_USERNAME 和 PPPOE_PASSWORD
@@ -96,23 +100,34 @@ fi
 
 # PPPoE 拨号设置（仅在首次启动时配置）
 if [ ! -f "$FIRST_BOOT_MARKER" ]; then
-  # 仅在设置了环境变量时才配置 PPPoE
+  # 优先使用环境变量，其次使用手动配置的账号密码
   if [ -n "$pppoe_username" ] && [ -n "$pppoe_password" ]; then
+    # 使用环境变量
+    pppoe_final_username="$pppoe_username"
+    pppoe_final_password="$pppoe_password"
+  elif [ -n "$pppoe_manual_username" ] && [ -n "$pppoe_manual_password" ]; then
+    # 使用手动配置
+    pppoe_final_username="$pppoe_manual_username"
+    pppoe_final_password="$pppoe_manual_password"
+  fi
+  
+  # 如果有任何一种方式的账号密码，就配置 PPPoE
+  if [ -n "$pppoe_final_username" ] && [ -n "$pppoe_final_password" ]; then
     log "======================================="
     log "[PPPoE] 配置 PPPoE 拨号"
-    log "[PPPoE]   账号：${pppoe_username}"
+    log "[PPPoE]   账号：${pppoe_final_username}"
     log "[PPPoE]   IPv6: auto"
     log "[PPPoE]   不释放连接：1"
     uci set network.wan.proto='pppoe'
-    uci set network.wan.username="$pppoe_username"
-    uci set network.wan.password="$pppoe_password"
+    uci set network.wan.username="$pppoe_final_username"
+    uci set network.wan.password="$pppoe_final_password"
     uci set network.wan.ipv6='auto'
     uci set network.wan.norelease='1'
     uci commit network
     log "[PPPoE] 配置完成！"
     log "======================================="
   else
-    log "[PPPoE] 跳过 - 未设置环境变量 PPPOE_USERNAME 和 PPPOE_PASSWORD"
+    log "[PPPoE] 跳过 - 未设置环境变量 PPPOE_USERNAME 和 PPPOE_PASSWORD，也未配置手动账号密码"
   fi
 else
   log "[PPPoE] 跳过 - 已存在首次启动标记"
