@@ -29,10 +29,10 @@ pppoe_manual_username=""
 pppoe_manual_password=""
 
 
-# PPPoE 拨号设置（从环境变量读取，避免明文存储）
-# 在 GitHub Actions 中使用 Secrets 设置 PPPOE_USERNAME 和 PPPOE_PASSWORD
-pppoe_username="${PPPOE_USERNAME:-}"
-pppoe_password="${PPPOE_PASSWORD:-}"
+# # PPPoE 拨号设置（从环境变量读取，避免明文存储）
+# # 在 GitHub Actions 中使用 Secrets 设置 PPPOE_USERNAME 和 PPPOE_PASSWORD
+# pppoe_username="${PPPOE_USERNAME:-}"
+# pppoe_password="${PPPOE_PASSWORD:-}"
 
 # 检查是否是首次启动（通过检查是否存在首次启动标记文件）
 FIRST_BOOT_MARKER="/etc/.first_boot_marker"
@@ -44,94 +44,94 @@ if [ -f "/etc/.force_reset" ]; then
   rm -f "/etc/.force_reset"
 fi
 
-# root 密码（仅在首次启动时强制设置）
-if [ ! -f "$FIRST_BOOT_MARKER" ]; then
-  log "[ROOT 密码] 正在设置 root 密码..."
-  echo "root:$root_password" | chpasswd 2>/dev/null || (echo "$root_password"; sleep 1; echo "$root_password") | passwd root >/dev/null 2>&1
-  log "[ROOT 密码] 设置完成 - 密码：$root_password"
-else
-  log "[ROOT 密码] 跳过 - 已存在首次启动标记"
-fi
+# # root 密码（仅在首次启动时强制设置）
+# if [ ! -f "$FIRST_BOOT_MARKER" ]; then
+#   log "[ROOT 密码] 正在设置 root 密码..."
+#   echo "root:$root_password" | chpasswd 2>/dev/null || (echo "$root_password"; sleep 1; echo "$root_password") | passwd root >/dev/null 2>&1
+#   log "[ROOT 密码] 设置完成 - 密码：$root_password"
+# else
+#   log "[ROOT 密码] 跳过 - 已存在首次启动标记"
+# fi
 
-# LAN IP（仅在首次启动时强制设置）
-if [ ! -f "$FIRST_BOOT_MARKER" ]; then
-  if [ -n "$lan_ip_address" ]; then
-    log "[LAN IP] 当前 IP: $(uci -q get network.lan.ipaddr)"
-    log "[LAN IP] 设置为 $lan_ip_address"
-    uci set network.lan.ipaddr="$lan_ip_address"
-    log "[LAN IP] 设置完成"
-  else
-    log "[LAN IP] 跳过 - 未设置 IP 地址"
-  fi
-else
-  log "[LAN IP] 跳过 - 已存在首次启动标记 (如需重置请删除 $FIRST_BOOT_MARKER)"
-fi
+# # LAN IP（仅在首次启动时强制设置）
+# if [ ! -f "$FIRST_BOOT_MARKER" ]; then
+#   if [ -n "$lan_ip_address" ]; then
+#     log "[LAN IP] 当前 IP: $(uci -q get network.lan.ipaddr)"
+#     log "[LAN IP] 设置为 $lan_ip_address"
+#     uci set network.lan.ipaddr="$lan_ip_address"
+#     log "[LAN IP] 设置完成"
+#   else
+#     log "[LAN IP] 跳过 - 未设置 IP 地址"
+#   fi
+# else
+#   log "[LAN IP] 跳过 - 已存在首次启动标记 (如需重置请删除 $FIRST_BOOT_MARKER)"
+# fi
 
-# DHCP 租期（仅在首次启动时强制设置）
-if [ ! -f "$FIRST_BOOT_MARKER" ]; then
-  log "[DHCP 租期] 设置为 12h"
-  uci set dhcp.lan.leasetime='12h'
-  log "[DHCP 租期] 设置完成"
-else
-  log "[DHCP 租期] 跳过 - 已存在首次启动标记"
-fi
+# # DHCP 租期（仅在首次启动时强制设置）
+# if [ ! -f "$FIRST_BOOT_MARKER" ]; then
+#   log "[DHCP 租期] 设置为 12h"
+#   uci set dhcp.lan.leasetime='12h'
+#   log "[DHCP 租期] 设置完成"
+# else
+#   log "[DHCP 租期] 跳过 - 已存在首次启动标记"
+# fi
 
 
-# 系统设置（仅在首次启动且主机名未修改才设置）
-if [ ! -f "$FIRST_BOOT_MARKER" ]; then
-  if [ "$(uci -q get system.@system[0].hostname)" = "OpenWrt" ]; then
-    log "[系统设置] 设置主机名为 ImmortalWrt"
-    uci set system.@system[0].hostname='ImmortalWrt'
-  else
-    log "[系统设置] 跳过 - 主机名已修改"
-  fi
-else
-  log "[系统设置] 跳过 - 已存在首次启动标记"
-fi
+# # 系统设置（仅在首次启动且主机名未修改才设置）
+# if [ ! -f "$FIRST_BOOT_MARKER" ]; then
+#   if [ "$(uci -q get system.@system[0].hostname)" = "OpenWrt" ]; then
+#     log "[系统设置] 设置主机名为 ImmortalWrt"
+#     uci set system.@system[0].hostname='ImmortalWrt'
+#   else
+#     log "[系统设置] 跳过 - 主机名已修改"
+#   fi
+# else
+#   log "[系统设置] 跳过 - 已存在首次启动标记"
+# fi
 
-# 设置 LAN 子网掩码（仅在首次启动时强制设置）
-if [ ! -f "$FIRST_BOOT_MARKER" ]; then
-  log "[LAN 子网掩码] 设置为 255.255.252.0"
-  uci set network.lan.netmask='255.255.252.0'
-  log "[LAN 子网掩码] 设置完成"
-else
-  log "[LAN 子网掩码] 跳过 - 已存在首次启动标记"
-fi
+# # 设置 LAN 子网掩码（仅在首次启动时强制设置）
+# if [ ! -f "$FIRST_BOOT_MARKER" ]; then
+#   log "[LAN 子网掩码] 设置为 255.255.252.0"
+#   uci set network.lan.netmask='255.255.252.0'
+#   log "[LAN 子网掩码] 设置完成"
+# else
+#   log "[LAN 子网掩码] 跳过 - 已存在首次启动标记"
+# fi
 
-# PPPoE 拨号设置（仅在首次启动时配置）
-if [ ! -f "$FIRST_BOOT_MARKER" ]; then
-  # 优先使用环境变量，其次使用手动配置的账号密码
-  if [ -n "$pppoe_username" ] && [ -n "$pppoe_password" ]; then
-    # 使用环境变量
-    pppoe_final_username="$pppoe_username"
-    pppoe_final_password="$pppoe_password"
-  elif [ -n "$pppoe_manual_username" ] && [ -n "$pppoe_manual_password" ]; then
-    # 使用手动配置
-    pppoe_final_username="$pppoe_manual_username"
-    pppoe_final_password="$pppoe_manual_password"
-  fi
+# # PPPoE 拨号设置（仅在首次启动时配置）
+# if [ ! -f "$FIRST_BOOT_MARKER" ]; then
+#   # 优先使用环境变量，其次使用手动配置的账号密码
+#   if [ -n "$pppoe_username" ] && [ -n "$pppoe_password" ]; then
+#     # 使用环境变量
+#     pppoe_final_username="$pppoe_username"
+#     pppoe_final_password="$pppoe_password"
+#   elif [ -n "$pppoe_manual_username" ] && [ -n "$pppoe_manual_password" ]; then
+#     # 使用手动配置
+#     pppoe_final_username="$pppoe_manual_username"
+#     pppoe_final_password="$pppoe_manual_password"
+#   fi
   
-  # 如果有任何一种方式的账号密码，就配置 PPPoE
-  if [ -n "$pppoe_final_username" ] && [ -n "$pppoe_final_password" ]; then
-    log "======================================="
-    log "[PPPoE] 配置 PPPoE 拨号"
-    log "[PPPoE]   账号：${pppoe_final_username}"
-    log "[PPPoE]   IPv6: auto"
-    log "[PPPoE]   不释放连接：1"
-    uci set network.wan.proto='pppoe'
-    uci set network.wan.username="$pppoe_final_username"
-    uci set network.wan.password="$pppoe_final_password"
-    uci set network.wan.ipv6='auto'
-    uci set network.wan.norelease='1'
-    uci commit network
-    log "[PPPoE] 配置完成！"
-    log "======================================="
-  else
-    log "[PPPoE] 跳过 - 未设置环境变量 PPPOE_USERNAME 和 PPPOE_PASSWORD，也未配置手动账号密码"
-  fi
-else
-  log "[PPPoE] 跳过 - 已存在首次启动标记"
-fi
+#   # 如果有任何一种方式的账号密码，就配置 PPPoE
+#   if [ -n "$pppoe_final_username" ] && [ -n "$pppoe_final_password" ]; then
+#     log "======================================="
+#     log "[PPPoE] 配置 PPPoE 拨号"
+#     log "[PPPoE]   账号：${pppoe_final_username}"
+#     log "[PPPoE]   IPv6: auto"
+#     log "[PPPoE]   不释放连接：1"
+#     uci set network.wan.proto='pppoe'
+#     uci set network.wan.username="$pppoe_final_username"
+#     uci set network.wan.password="$pppoe_final_password"
+#     uci set network.wan.ipv6='auto'
+#     uci set network.wan.norelease='1'
+#     uci commit network
+#     log "[PPPoE] 配置完成！"
+#     log "======================================="
+#   else
+#     log "[PPPoE] 跳过 - 未设置环境变量 PPPOE_USERNAME 和 PPPOE_PASSWORD，也未配置手动账号密码"
+#   fi
+# else
+#   log "[PPPoE] 跳过 - 已存在首次启动标记"
+# fi
 
 # Host 绑定（先检查是否已存在该 MAC）
 add_static_host() {
@@ -156,61 +156,61 @@ else
   log "[静态 DHCP] 跳过 - 已存在首次启动标记"
 fi
 
-# zerotier 设置（仅在首次启动且安装了才配置）
-if [ ! -f "$FIRST_BOOT_MARKER" ] && opkg list-installed | grep -q "^zerotier"; then
-  log "[ZeroTier] 检测到已安装，开始配置"
-  # 删除现有配置
-  uci -q del zerotier.earth.enabled
-  uci -q del zerotier.earth.allow_managed
-  uci -q del zerotier.earth.allow_global
-  uci -q del zerotier.earth.allow_default
-  uci -q del zerotier.earth.allow_dns
-  uci -q del zerotier.earth.fw_allow_input
-  uci -q del zerotier.earth.fw_allow_forward
-  uci -q del zerotier.earth.fw_allow_masq
-  uci -q del zerotier.global.enabled
+# # zerotier 设置（仅在首次启动且安装了才配置）
+# if [ ! -f "$FIRST_BOOT_MARKER" ] && opkg list-installed | grep -q "^zerotier"; then
+#   log "[ZeroTier] 检测到已安装，开始配置"
+#   # 删除现有配置
+#   uci -q del zerotier.earth.enabled
+#   uci -q del zerotier.earth.allow_managed
+#   uci -q del zerotier.earth.allow_global
+#   uci -q del zerotier.earth.allow_default
+#   uci -q del zerotier.earth.allow_dns
+#   uci -q del zerotier.earth.fw_allow_input
+#   uci -q del zerotier.earth.fw_allow_forward
+#   uci -q del zerotier.earth.fw_allow_masq
+#   uci -q del zerotier.global.enabled
 
-  # 设置新配置
-  uci set zerotier.earth.id='d3ecf5726da3eeac'
-  uci set zerotier.earth.allow_global='1'
-  uci set zerotier.earth.allow_default='1'
-  uci set zerotier.earth.allow_dns='1'
-  uci set zerotier.earth.fw_allow_input='1'
-  uci set zerotier.earth.fw_allow_forward='1'
-  uci set zerotier.earth.fw_allow_masq='1'
-  uci set zerotier.global.enabled='1'
-  log "[ZeroTier] 配置完成"
-else
-  if [ -f "$FIRST_BOOT_MARKER" ]; then
-    log "[ZeroTier] 跳过 - 已存在首次启动标记"
-  else
-    log "[ZeroTier] 跳过 - 未安装 zerotier"
-  fi
-fi
+#   # 设置新配置
+#   uci set zerotier.earth.id='d3ecf5726da3eeac'
+#   uci set zerotier.earth.allow_global='1'
+#   uci set zerotier.earth.allow_default='1'
+#   uci set zerotier.earth.allow_dns='1'
+#   uci set zerotier.earth.fw_allow_input='1'
+#   uci set zerotier.earth.fw_allow_forward='1'
+#   uci set zerotier.earth.fw_allow_masq='1'
+#   uci set zerotier.global.enabled='1'
+#   log "[ZeroTier] 配置完成"
+# else
+#   if [ -f "$FIRST_BOOT_MARKER" ]; then
+#     log "[ZeroTier] 跳过 - 已存在首次启动标记"
+#   else
+#     log "[ZeroTier] 跳过 - 未安装 zerotier"
+#   fi
+# fi
 
-# vlmcsd 设置（仅在首次启动且安装了才配置）
-if [ ! -f "$FIRST_BOOT_MARKER" ] && opkg list-installed | grep -q "^vlmcsd"; then
-  log "[vlmcsd] 检测到已安装，开始配置"
-  if ! uci -q get vlmcsd.config.enabled >/dev/null; then
-    log "[vlmcsd] 设置 enabled=1"
-    uci set vlmcsd.config.enabled='1'
-  fi
-  if ! uci -q get vlmcsd.config.auto_activate >/dev/null; then
-    log "[vlmcsd] 设置 auto_activate=1"
-    uci set vlmcsd.config.auto_activate='1'
-  fi
-  if ! uci -q get vlmcsd.config.internet_access >/dev/null; then
-    log "[vlmcsd] 设置 internet_access=1"
-    uci set vlmcsd.config.internet_access='1'
-  fi
-  log "[vlmcsd] 配置完成"
-else
-  if [ -f "$FIRST_BOOT_MARKER" ]; then
-    log "[vlmcsd] 跳过 - 已存在首次启动标记"
-  else
-    log "[vlmcsd] 跳过 - 未安装 vlmcsd"
-  fi
-fi
+# # vlmcsd 设置（仅在首次启动且安装了才配置）
+# if [ ! -f "$FIRST_BOOT_MARKER" ] && opkg list-installed | grep -q "^vlmcsd"; then
+#   log "[vlmcsd] 检测到已安装，开始配置"
+#   if ! uci -q get vlmcsd.config.enabled >/dev/null; then
+#     log "[vlmcsd] 设置 enabled=1"
+#     uci set vlmcsd.config.enabled='1'
+#   fi
+#   if ! uci -q get vlmcsd.config.auto_activate >/dev/null; then
+#     log "[vlmcsd] 设置 auto_activate=1"
+#     uci set vlmcsd.config.auto_activate='1'
+#   fi
+#   if ! uci -q get vlmcsd.config.internet_access >/dev/null; then
+#     log "[vlmcsd] 设置 internet_access=1"
+#     uci set vlmcsd.config.internet_access='1'
+#   fi
+#   log "[vlmcsd] 配置完成"
+# else
+#   if [ -f "$FIRST_BOOT_MARKER" ]; then
+#     log "[vlmcsd] 跳过 - 已存在首次启动标记"
+#   else
+#     log "[vlmcsd] 跳过 - 未安装 vlmcsd"
+#   fi
+# fi
 
 
 # 提交所有更改并重启相关服务
