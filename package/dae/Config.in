@@ -1,0 +1,6 @@
+config PACKAGE_dae
+	bool "dae (transparent proxy using eBPF)"
+	default y
+	help
+		Enable dae, a high-performance transparent proxy that uses eBPF.
+		https://github.com/daeuniverse/dae

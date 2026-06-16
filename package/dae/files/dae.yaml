@@ -1,0 +1,10 @@
+# Minimal example dae configuration
+# Place a complete configuration here as needed by your deployment
+
+listen: 
+  address: 0.0.0.0
+  port: 8080
+
+# Example: enable minimal logging
+log:
+  level: info
