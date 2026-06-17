@@ -68,18 +68,6 @@ git clone https://github.com/nikkinikki-org/OpenWrt-momo.git package/OpenWrt-mom
 # 添加 AdGuardHome 插件
 git clone https://github.com/rufengsuixing/luci-app-adguardhome package/luci-app-adguardhome
 
-# 添加 luci-app-dae
-git clone https://github.com/Pacalini/luci-app-dae.git package/luci-app-dae
-
-# 添加 dae 本地包
-if [ -d "$GITHUB_WORKSPACE/package/dae" ]; then
-    echo "Copy local dae package into OpenWrt package tree"
-    rm -rf package/dae
-    cp -r "$GITHUB_WORKSPACE/package/dae" package/dae
-else
-    echo "警告：未找到本地 dae 包目录 $GITHUB_WORKSPACE/package/dae"
-fi
-
 # 添加 passwall2
 git clone https://github.com/Openwrt-Passwall/openwrt-passwall2.git package/openwrt-passwall2
 
