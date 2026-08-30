@@ -148,7 +148,7 @@ add_static_host() {
 # 添加静态地址绑定（仅在首次启动时添加）
 if [ ! -f "$FIRST_BOOT_MARKER" ]; then
   log "[静态 DHCP] 开始添加静态地址绑定"
-  add_static_host "DESKTOP-DR6M5VG" "192.168.10.107" "30:9C:23:E1:E3:72"
+  add_static_host "DESKTOP-DR6M5VG" "192.168.10.107" "A4:0C:66:2A:A2:00"
   add_static_host "armbian" "192.168.10.158" "6A:CE:3B:D4:CB:8B"
   add_static_host "WIN-LMSJ088AVIQ" "192.168.10.180" "7C:2B:E1:13:6E:83"
   log "[静态 DHCP] 配置完成"
