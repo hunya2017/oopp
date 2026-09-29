@@ -41,7 +41,7 @@ on:
 
 env:
   REPO_URL: https://github.com/immortalwrt/immortalwrt
-  REPO_BRANCH: openwrt-24.10
+  REPO_BRANCH: openwrt-25.12
   FEEDS_CONF: feeds.conf.default
   CONFIG_FILE: config/immortalwrt.info
   Firmware_Name: immortalwrt-all
@@ -128,7 +128,7 @@ jobs:
       if: github.event.inputs.CACHE_BUILD == 'true'
       with:
         ccache: 'true'
-        mixkey: '${{ env.Firmware_Name }}'
+        mixkey: '${{ env.Firmware_Name }}-${{ env.REPO_BRANCH }}'
         prefix: ${{ github.workspace }}/openwrt
 
     - name: 执行自定义脚本1
